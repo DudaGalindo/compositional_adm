@@ -82,7 +82,7 @@ compositional_data:
     vc: [0.0006031573275]
     Mw: [142.28e-3]
     w: [0.4890]
-    Bin: [0]
+    Bin: [[0]]
     vshift_parameter: [0.085]
 
 

@@ -50,7 +50,7 @@ compositional_data:
   capillary_pressure: Chang
   component_data:
     Bin:
-    - 0
+    - - 0
     Mw:
     - 0.14228
     Pc:

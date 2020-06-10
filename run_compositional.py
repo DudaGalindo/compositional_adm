@@ -6,11 +6,13 @@ from packs.compositional.compositionalIMPEC import CompositionalFVM
 from packs.compositional.stability_check import StabilityCheck
 from packs.compositional.properties_calculation import PropertiesCalc
 from packs.compositional.update_time import delta_time
-from update_inputs_compositional import ComponentProperties, FluidProperties
+from update_inputs_compositional import FluidProperties
 import update_inputs_compositional
 from packs.utils import constants as ctes
+from packs.compositional.stability_check_n import StabilityCheck_n as StabilityCheckn
 import os
 import time
+from numba import jit, prange
 
 class run_simulation:
 
@@ -31,43 +33,41 @@ class run_simulation:
     def initialize(self, load, convert, mesh):
         M, elements_lv0, data_impress, wells = initial_mesh(mesh, load=load, convert=convert)
         ctes.init(M)
-        fprop, kprop = self.get_initial_properties(M, wells, load, data_loaded)
-        return M, data_impress, wells, fprop, kprop, load
+        ctes.component_properties()
+        fprop = self.get_initial_properties(M, wells, load, data_loaded)
+        return M, data_impress, wells, fprop, load
 
     def get_initial_properties(self, M, wells, load, data_loaded):
-        kprop = ComponentProperties()
-        fprop = FluidProperties(kprop, ctes.n_volumes)
-
-        if kprop.load_k:
-            fprop_block = StabilityCheck(fprop.P[0], fprop.T, kprop)
-            fprop_block.run(kprop.z, kprop)
-            fprop.run_inputs_k(fprop_block, kprop, ctes.n_volumes)
-            #fprop_block.get_EOS_dependent_properties(kprop, fprop)
-
+        fprop = FluidProperties()
+        if ctes.load_k:
+            #fprop_block = StabilityCheck(fprop.P[0], fprop.T.ravel()[0])
+            #fprop_block.run(ctes.z)
+            #fprop_block.update_EOS_dependent_properties(fprop)
+            x, y, L, V, ksi_L, ksi_V, rho_L, rho_V = run_simulation.run_stability_and_flash(fprop.P,
+            fprop.T, fprop.z, ctes.w, ctes.Tc, ctes.Pc, ctes.Bin, ctes.Mw)
+            fprop.inputs_fluid_properties(x, y, L, V, ksi_L, ksi_V, rho_L, rho_V)
         else: fprop.x = []; fprop.y = []
 
-        self.p1.run_outside_loop(M, fprop, kprop)
-        return fprop, kprop
+        if ctes.load_w: fprop.inputs_water_properties()
 
-    def run(self, M, wells, fprop, kprop, load):
+        self.p1.run_outside_loop(M, fprop)
+        return fprop
+
+    def run(self, M, wells, fprop, load):
         t0 = time.time()
         t_obj = delta_time(fprop) #get wanted properties in t=n
-        self.delta_t = CompositionalFVM().runIMPEC(M, wells, fprop, kprop, self.delta_t)
+        self.delta_t = CompositionalFVM().runIMPEC(M, wells, fprop, self.delta_t)
 
         self.t += self.delta_t
+        import pdb; pdb.set_trace()
+        if ctes.load_k and ctes.compressible_k:
+            x, y, L, V, ksi_L, ksi_V, rho_L, rho_V = run_simulation.run_stability_and_flash(fprop.P,
+            fprop.T, fprop.z, ctes.w, ctes.Tc, ctes.Pc, ctes.Bin, ctes.Mw)
+            fprop.update_fluid_properties(x, y, L, V, ksi_L, ksi_V, rho_L, rho_V)
 
-        if kprop.load_k and kprop.compressible_k:
-            for i in range(0, ctes.n_volumes):
-                P = fprop.P[i]
-                z = fprop.z[0:kprop.Nc,i] #água não entra
-                fprop_block = StabilityCheck(P, fprop.T, kprop)
-                fprop_block.run(z, kprop)
-                fprop.update_all_volumes(fprop_block, i)
-        #fprop_block.get_EOS_dependent_properties(kprop, fprop)
-
-        self.p1.run_inside_loop(M, fprop, kprop)
-        self.update_vpi(kprop, fprop, wells)
-        self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, kprop.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
+        self.p1.run_inside_loop(M, fprop)
+        self.update_vpi(fprop, wells)
+        self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
         self.update_loop()
         t1 = time.time()
         dt = t1 - t0
@@ -80,10 +80,37 @@ class run_simulation:
             if self.t in self.time_save:
                 self.update_current_compositional_results(M, wells, fprop, dt)
 
+    @jit(nopython=True)
+    def run_stability_and_flash(P, T, z, w, Tc, Pc, Bin, Mw):
+
+        x = np.empty(len(w)).reshape(len(w),len(P))
+        y = np.empty(len(w)).reshape(len(w),len(P))
+        L = np.ones(len(P), dtype = np.float64); V = np.ones(len(P), dtype = np.float64)
+        ksi_L = np.ones(len(P), dtype = np.float64); ksi_V = np.ones(len(P), dtype = np.float64)
+        rho_L = np.ones(len(P), dtype = np.float64); rho_V = np.ones(len(P), dtype = np.float64)
+
+        for i in range(len(P)):
+            fprop_block = StabilityCheckn(P[i], T, w, Tc, Pc, Bin)
+            fprop_block.run(z[0:len(w),i], Mw)
+            #StabilityCheckn(P[i], T).update_EOS_dependent_properties()
+            x[:,i] = fprop_block.x
+            y[:,i] = fprop_block.y
+            L[i] = fprop_block.L
+            V[i] = fprop_block.V
+            ksi_L[i] = fprop_block.ksi_L
+            ksi_V[i] = fprop_block.ksi_V
+            rho_L[i] = fprop_block.rho_L
+            rho_V[i] = fprop_block.rho_V
+        return x, y, L, V, ksi_L, ksi_V, rho_L, rho_V
+            #fprop.update_all_volumes(fprop_block, i)
+    #import pdb; pdb.set_trace()
+
+
+
     def update_loop(self):
         self.loop += 1
 
-    def update_vpi(self, kprop, fprop, wells):
+    def update_vpi(self, fprop, wells):
         if len(wells['ws_inj'])>0:
             flux_vols_total = wells['values_q']
             flux_total_inj = np.absolute(flux_vols_total)

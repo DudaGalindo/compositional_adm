@@ -7,8 +7,8 @@ import run_compositional
 import scipy.sparse as sp
 import numpy as np
 from packs.compositional.update_time import delta_time
-import matplotlib.pyplot as plt
 import update_inputs_compositional
+import time
 
 """ --------------------------For user to fill------------------------------ """
 
@@ -33,10 +33,10 @@ load = data_loaded['load_data']
 convert = data_loaded['convert_english_to_SI']
 
 sim = run_simulation(name_current, name_all)
-M, data_impress, wells, fprop, kprop, load = sim.initialize(load, convert, mesh)
-
+M, data_impress, wells, fprop, load = sim.initialize(load, convert, mesh)
+t = time.time()
 while run_criteria < stop_criteria: #and loop < loop_max:
-    sim.run(M, wells, fprop, kprop, load)
+    sim.run(M, wells, fprop, load)
     #import pdb; pdb.set_trace()
     if data_loaded['use_vpi']: run_criteria = sim.vpi
     else:
@@ -52,7 +52,8 @@ while run_criteria < stop_criteria: #and loop < loop_max:
     print(sim.t)
 
 print(fprop.P)
-
+tf = time.time()
+print(tf-t)
 import pdb; pdb.set_trace()
 sim.save_infos(data_impress, M)
 

@@ -223,4 +223,8 @@ for  arq in arquivos:
         plt.ylabel('Pressure (psi)')
         plt.xlabel('Distance in X - Direction (ft)')
         plt.savefig('results/compositional/pressure_2d1_'  + '.png')
+
+        plt.figure(2)
+        plt.plot(x4, pressure4, x, P)
+        plt.savefig('results/compositional/pressure_2d2_.png')
         import pdb; pdb.set_trace()
