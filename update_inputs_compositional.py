@@ -35,14 +35,14 @@ class FluidProperties:
 
     def inputs_fluid_properties(self, fprop_block):
         self.z = self.z * np.ones(ctes.n_volumes)
-        self.component_molar_fractions[0:ctes.Nc,0,:] = fprop_block.x[:,np.newaxis] * np.ones([ctes.Nc, ctes.n_volumes])
-        self.component_molar_fractions[0:ctes.Nc,1,:] = fprop_block.y[:,np.newaxis] * np.ones([ctes.Nc, ctes.n_volumes])
-        self.L = fprop_block.L * np.ones(ctes.n_volumes)
-        self.V = fprop_block.V * np.ones(ctes.n_volumes)
-        self.phase_molar_densities[0,0,:] = fprop_block.ksi_L * np.ones(ctes.n_volumes)
-        self.phase_molar_densities[0,1,:] = fprop_block.ksi_V * np.ones(ctes.n_volumes)
-        self.phase_densities[0,0,:] = fprop_block.rho_L * np.ones(ctes.n_volumes)
-        self.phase_densities[0,1,:] = fprop_block.rho_V * np.ones(ctes.n_volumes)
+        self.component_molar_fractions[0:ctes.Nc,0,:] = fprop_block.x[:,np.newaxis] * np.ones([ctes.Nc, ctes.n_volumes]).astype(float)
+        self.component_molar_fractions[0:ctes.Nc,1,:] = fprop_block.y[:,np.newaxis] * np.ones([ctes.Nc, ctes.n_volumes]).astype(float)
+        self.L = fprop_block.L * np.ones(ctes.n_volumes).astype(float)
+        self.V = fprop_block.V * np.ones(ctes.n_volumes).astype(float)
+        self.phase_molar_densities[0,0,:] = fprop_block.ksi_L * np.ones(ctes.n_volumes).astype(float)
+        self.phase_molar_densities[0,1,:] = fprop_block.ksi_V * np.ones(ctes.n_volumes).astype(float)
+        self.phase_densities[0,0,:] = fprop_block.rho_L * np.ones(ctes.n_volumes).astype(float)
+        self.phase_densities[0,1,:] = fprop_block.rho_V * np.ones(ctes.n_volumes).astype(float)
 
     def inputs_water_properties(self):
         self.phase_densities[0,ctes.n_phases-1,:] = data_loaded['compositional_data']['water_data']['rho_W']
@@ -56,8 +56,8 @@ class FluidProperties:
     def update_fluid_properties(self, fprop_block, i):
         self.component_molar_fractions[0:ctes.Nc,0,i] = fprop_block.x[:,np.newaxis]
         self.component_molar_fractions[0:ctes.Nc,1,i] = fprop_block.y[:,np.newaxis]
-        self.L = fprop_block.L
-        self.V = fprop_block.V
+        self.L[i] = fprop_block.L
+        self.V[i] = fprop_block.V
         self.phase_molar_densities[0,0,i] = fprop_block.ksi_L
         self.phase_molar_densities[0,1,i] = fprop_block.ksi_V
         self.phase_densities[0,0,i] = fprop_block.rho_L

@@ -68,8 +68,8 @@ class PropertiesCalc:
     def update_saturations(self, M, fprop):
         fprop.Sw = M.data['saturation']
         if ctes.load_k:
-            fprop.Sg = np.zeros(fprop.Sw.shape)
-            fprop.Sg[fprop.V!=0] = (1 - fprop.Sw[fprop.V!=0]) * \
+            fprop.Sg = np.zeros(fprop.Sw.shape).astype(float)
+            fprop.Sg[fprop.V!=0] = (1. - fprop.Sw[fprop.V!=0]) * \
                 (fprop.V[fprop.V!=0] / fprop.phase_molar_densities[0,1,:][fprop.V!=0]) / \
                 (fprop.V[fprop.V!=0] / fprop.phase_molar_densities[0,1,:][fprop.V!=0] +
                 fprop.L[fprop.V!=0] / fprop.phase_molar_densities[0,0,:][fprop.V!=0] )

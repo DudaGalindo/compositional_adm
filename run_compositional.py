@@ -9,10 +9,8 @@ from packs.compositional.update_time import delta_time
 from update_inputs_compositional import FluidProperties
 import update_inputs_compositional
 from packs.utils import constants as ctes
-from packs.compositional.stability_check_n import StabilityCheck_n as StabilityCheckn
 import os
 import time
-from numba import jit, prange
 
 class run_simulation:
 
@@ -57,11 +55,10 @@ class run_simulation:
         self.delta_t = CompositionalFVM().runIMPEC(M, wells, fprop, self.delta_t)
 
         self.t += self.delta_t
-        import pdb; pdb.set_trace()
         if ctes.load_k and ctes.compressible_k:
             for i in range(ctes.n_volumes):
                 fprop_block = StabilityCheck(fprop.P[0], fprop.T)
-                fprop_block.run(fprop.z)
+                fprop_block.run(fprop.z[0:ctes.Nc,i])
                 fprop_block.update_EOS_dependent_properties(fprop)
                 fprop.update_fluid_properties(fprop_block, i)
 
@@ -79,33 +76,6 @@ class run_simulation:
         else:
             if self.t in self.time_save:
                 self.update_current_compositional_results(M, wells, fprop, dt)
-
-    @jit(nopython=True)
-    def run_stability_and_flash(P, T, z, w, Tc, Pc, Bin, Mw):
-
-        x = np.empty(len(w)).reshape(len(w),len(P))
-        y = np.empty(len(w)).reshape(len(w),len(P))
-        L = np.ones(len(P), dtype = np.float64); V = np.ones(len(P), dtype = np.float64)
-        ksi_L = np.ones(len(P), dtype = np.float64); ksi_V = np.ones(len(P), dtype = np.float64)
-        rho_L = np.ones(len(P), dtype = np.float64); rho_V = np.ones(len(P), dtype = np.float64)
-
-        for i in range(len(P)):
-            fprop_block = StabilityCheckn(P[i], T, w, Tc, Pc, Bin)
-            fprop_block.run(z[0:len(w),i], Mw)
-            #StabilityCheckn(P[i], T).update_EOS_dependent_properties()
-            x[:,i] = fprop_block.x
-            y[:,i] = fprop_block.y
-            L[i] = fprop_block.L
-            V[i] = fprop_block.V
-            ksi_L[i] = fprop_block.ksi_L
-            ksi_V[i] = fprop_block.ksi_V
-            rho_L[i] = fprop_block.rho_L
-            rho_V[i] = fprop_block.rho_V
-        return x, y, L, V, ksi_L, ksi_V, rho_L, rho_V
-            #fprop.update_all_volumes(fprop_block, i)
-    #import pdb; pdb.set_trace()
-
-
 
     def update_loop(self):
         self.loop += 1

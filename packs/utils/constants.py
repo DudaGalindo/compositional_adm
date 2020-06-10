@@ -12,8 +12,6 @@ def init(M):
     global Pf
     global porosity
     global Cf
-    global Cw
-    global Pw
     global Vbulk
     global R
 
@@ -46,6 +44,8 @@ def component_properties():
     global s
     global n_components
     global Mw_w
+    global Cw
+    global Pw
 
     load_k = data_loaded['hidrocarbon_components']
     load_w = data_loaded['water_component']
