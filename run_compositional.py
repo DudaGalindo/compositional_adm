@@ -40,12 +40,10 @@ class run_simulation:
     def get_initial_properties(self, M, wells, load, data_loaded):
         fprop = FluidProperties()
         if ctes.load_k:
-            #fprop_block = StabilityCheck(fprop.P[0], fprop.T.ravel()[0])
-            #fprop_block.run(ctes.z)
-            #fprop_block.update_EOS_dependent_properties(fprop)
-            x, y, L, V, ksi_L, ksi_V, rho_L, rho_V = run_simulation.run_stability_and_flash(fprop.P,
-            fprop.T, fprop.z, ctes.w, ctes.Tc, ctes.Pc, ctes.Bin, ctes.Mw)
-            fprop.inputs_fluid_properties(x, y, L, V, ksi_L, ksi_V, rho_L, rho_V)
+            fprop_block = StabilityCheck(fprop.P[0], fprop.T)
+            fprop_block.run(fprop.z)
+            fprop_block.update_EOS_dependent_properties(fprop)
+            fprop.inputs_fluid_properties(fprop_block)
         else: fprop.x = []; fprop.y = []
 
         if ctes.load_w: fprop.inputs_water_properties()
@@ -61,9 +59,11 @@ class run_simulation:
         self.t += self.delta_t
         import pdb; pdb.set_trace()
         if ctes.load_k and ctes.compressible_k:
-            x, y, L, V, ksi_L, ksi_V, rho_L, rho_V = run_simulation.run_stability_and_flash(fprop.P,
-            fprop.T, fprop.z, ctes.w, ctes.Tc, ctes.Pc, ctes.Bin, ctes.Mw)
-            fprop.update_fluid_properties(x, y, L, V, ksi_L, ksi_V, rho_L, rho_V)
+            for i in range(ctes.n_volumes):
+                fprop_block = StabilityCheck(fprop.P[0], fprop.T)
+                fprop_block.run(fprop.z)
+                fprop_block.update_EOS_dependent_properties(fprop)
+                fprop.update_fluid_properties(fprop_block, i)
 
         self.p1.run_inside_loop(M, fprop)
         self.update_vpi(fprop, wells)
