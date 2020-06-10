@@ -4,27 +4,26 @@ from ..utils import constants as ctes
 from ..solvers.EOS_solver.solver import CubicRoots
 
 class PengRobinson:
-    def __init__(self, P, T, kprop):
+    def __init__(self, P, T):
         self.P = P
         self.T = T
-        self.coefficientsPR(kprop)
+        self.coefficientsPR()
 
-    def coefficientsPR(self, kprop):
+    def coefficientsPR(self):
         #l - any phase molar composition
         PR_kC7 = np.array([0.379642, 1.48503, 0.1644, 0.016667])
         PR_k = np.array([0.37464, 1.54226, 0.26992])
-
-        k = (PR_kC7[0] + PR_kC7[1] * kprop.w - PR_kC7[2] * kprop.w ** 2 + \
-            PR_kC7[3] * kprop.w ** 3) * (1*(kprop.w >= 0.49))  + (PR_k[0] + PR_k[1] * kprop.w - \
-            PR_k[2] * kprop.w ** 2) * (1*(kprop.w < 0.49))
-        alpha = (1 + k * (1 - (self.T/ kprop.Tc) ** (1 / 2))) ** 2
-        aalpha_i = 0.45724 * (ctes.R * kprop.Tc) ** 2 / kprop.Pc * alpha
-        self.b = 0.07780 * ctes.R * kprop.Tc / kprop.Pc
-        aalpha_i_reshape = np.ones((kprop.Nc,kprop.Nc)) * aalpha_i[:,np.newaxis]
+        k = (PR_kC7[0] + PR_kC7[1] * ctes.w - PR_kC7[2] * ctes.w ** 2 + \
+            PR_kC7[3] * ctes.w ** 3) * (1*(ctes.w >= 0.49))  + (PR_k[0] + PR_k[1] * ctes.w - \
+            PR_k[2] * ctes.w ** 2) * (1*(ctes.w < 0.49))
+        alpha = (1 + k * (1 - (self.T/ ctes.Tc) ** (1 / 2))) ** 2
+        aalpha_i = 0.45724 * (ctes.R * ctes.Tc) ** 2 / ctes.Pc * alpha
+        self.b = 0.07780 * ctes.R * ctes.Tc / ctes.Pc
+        aalpha_i_reshape = np.ones((ctes.Nc,ctes.Nc)) * aalpha_i[:,np.newaxis]
         self.aalpha_ij = np.sqrt(aalpha_i_reshape.T * aalpha_i[:,np.newaxis]) \
-                        * (1 - kprop.Bin)
+                        * (1 - ctes.Bin)
 
-    '''def coefficients_cubic_EOS(self, kprop, l):
+    def coefficients_cubic_EOS(self, l):
         self.bm = sum(l * self.b)
         l_reshape = np.ones((self.aalpha_ij).shape) * l[:, np.newaxis]
         self.aalpha = (l_reshape.T * l[:,np.newaxis] * self.aalpha_ij).sum()
@@ -33,7 +32,7 @@ class PengRobinson:
         self.psi = (l_reshape * self.aalpha_ij).sum(axis = 0)
         return A, B
 
-    def Z(B, A, ph):
+    def Z(A, B):
         # PR cubic EOS: Z**3 - (1-B)*Z**2 + (A-2*B-3*B**2)*Z-(A*B-B**2-B**3)
         coef = [1, -(1 - B), (A - 2*B - 3*B**2), -(A*B - B**2 - B**3)]
         Z = np.roots(coef)
@@ -41,8 +40,8 @@ class PengRobinson:
         #position where the real roots are - crated for organization only
         real_roots_position = np.where(root == True)
         Z_reais = np.real(Z[real_roots_position[:]]) #Saving the real roots
-        Z = min(Z_reais) * ph + max(Z_reais) * (1 - ph)
-        return Z_reais'''
+        #Z = min(Z_reais) * ph + max(Z_reais) * (1 - ph)
+        return Z_reais
     ''' This last line, considers that the phase is composed by a pure
          component, so the EOS model can return more than one real root.
             If liquid, Zl = min(Z) and gas, Zv = max(Z).
@@ -50,10 +49,10 @@ class PengRobinson:
     it works as well.'''
 
 
-    def lnphi(self, kprop, l, ph):
+    def lnphi(self, l, ph):
         #l - any phase molar composition
         l = l[:,np.newaxis]
-        A, B = self.coefficients_cubic_EOS_vectorized(kprop,l)
+        A, B = self.coefficients_cubic_EOS_vectorized(l)
         Z = PengRobinson.Z_vectorized(A, B)
         Z = min(Z) * ph + max(Z) * (1 - ph)
         lnphi = self.b / self.bm * (Z - 1) - np.log(Z - B) - A / (2 * (2 ** (1/2))
@@ -68,7 +67,7 @@ class PengRobinson:
      trust them. Thats why they are kind of separeted from the original ones(that I do trust completelly but
      you can't calculate in a vectorized manner with them."""
 
-    def coefficients_cubic_EOS_vectorized(self, kprop, l):
+    def coefficients_cubic_EOS_vectorized(self, l):
         self.bm = np.sum(l * self.b[:,np.newaxis], axis=0)
         l_reshape = np.ones((self.aalpha_ij).shape)[:,:,np.newaxis] * l[:,np.newaxis,:]
         self.aalpha = (l_reshape * l[np.newaxis,:,:] * self.aalpha_ij[:,:,np.newaxis]).sum(axis=0).sum(axis=0)
@@ -88,8 +87,8 @@ class PengRobinson:
 
     """ Derivatives - Still need to organize this"""
 
-    def get_dVt_dNk_analytically(self, P, kprop, Vt, Sj, l, Nk):
-        self.coefficients_cubic_EOS_vectorized(kprop, l)
+    def get_dVt_dNk_analytically(self, P, Vt, Sj, l, Nk):
+        self.coefficients_cubic_EOS_vectorized(l)
         bm = self.bm; am = self.aalpha
         C = np.array([P*(Sj*l)**3, (bm*P - ctes.R*self.T)*(Sj*l)**2, (am - 3*P*bm**2 - 2*ctes.R*self.T*bm)*(Sj*l)])
 
@@ -99,8 +98,8 @@ class PengRobinson:
         dVt_dNk = Num/Den
         return dVt_dNk
 
-    def get_dVt_dP_analytically(self, P, kprop, Vt, Nj, l):
-        self.coefficients_cubic_EOS_vectorized(kprop, l)
+    def get_dVt_dP_analytically(self, P, Vt, Nj, l):
+        self.coefficients_cubic_EOS_vectorized(l)
         bm = self.bm; am = self.aalpha
         C = np.array([(1/Nj)**3, (1/Nj)**2, (1/Nj)])
 
@@ -110,15 +109,15 @@ class PengRobinson:
         dVt_dP = Num/Den
         return dVt_dP
 
-    def get_all_derivatives(self, kprop, fprop):
+    def get_all_derivatives(self, fprop):
         n_blocks = len(fprop.P)
 
         P = fprop.P
         So = fprop.So
         Vt = fprop.Vt
-        l = fprop.component_molar_fractions[0:kprop.Nc,0,:]
-        Nk = fprop.component_mole_numbers[0:kprop.Nc,:]
-        dVt_dNk = self.get_dVt_dNk_analytically(P, kprop, Vt, So, l, Nk)
+        l = fprop.component_molar_fractions[0:ctes.Nc,0,:]
+        Nk = fprop.component_mole_numbers[0:ctes.Nc,:]
+        dVt_dNk = self.get_dVt_dNk_analytically(P, Vt, So, l, Nk)
         No = fprop.phase_mole_numbers[0,0,:]
-        dVt_dP = self.get_dVt_dP_analytically(P, kprop, Vt, No, l)
+        dVt_dP = self.get_dVt_dP_analytically(P, Vt, No, l)
         return dVt_dNk, dVt_dP

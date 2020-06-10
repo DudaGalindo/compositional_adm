@@ -3,6 +3,7 @@ import numpy as np
 from ..directories import data_loaded
 from scipy.misc import derivative
 from . import equation_of_state
+from ..utils import constants as ctes
 import math
 # import matplotlib.pyplot as plt
 ## Encontrar os pontos estacionarios. Estes correspondem aos pontos nos quais a derivada de g com respeito a Y é 0
@@ -13,34 +14,34 @@ class StabilityCheck:
     """Check for stability of a thermodynamic equilibrium and returns the
     equilibrium phase compositions (perform the flash calculation)."""
 
-    def __init__(self, P, T, kprop):
+    def __init__(self, P, T):
         self.T = T
         self.P = P
-        EOS_class = getattr(equation_of_state, data_loaded['compositional_data']['equation_of_state'])
-        self.EOS = EOS_class(P, T, kprop)
+        self.EOS_class = getattr(equation_of_state, data_loaded['compositional_data']['equation_of_state'])
+        self.EOS = self.EOS_class(P, T)
 
-    def run(self, z, kprop):
-        self.equilibrium_ratio_Wilson(kprop)
+    def run(self, z):
+        self.equilibrium_ratio_Wilson()
 
         if any(z <= 0):
-            self.molar_properties(kprop, z)
+            self.molar_properties(z)
         else:
-            sp1,sp2 = self.StabilityTest(kprop, z)
-            if np.round(sp1,8) > 1 or np.round(sp2,8) > 1: self.molar_properties(kprop, z)
+            sp1,sp2 = self.StabilityTest(z)
+            if np.round(sp1,8) > 1 or np.round(sp2,8) > 1: self.molar_properties(z)
             else: #tiny manipulation
                 self.x = z; self.y = z
                 self.bubble_point_pressure()
                 if self.P > self.Pbubble: self.L = 1; self.V = 0; ph = 1
                 else: self.L = 0; self.V = 1; ph = 0
 
-    def equilibrium_ratio_Wilson(self, kprop):
+    def equilibrium_ratio_Wilson(self):
         self.K = np.exp(5.37 * (1 + kprop.w) * (1 - kprop.Tc / self.T)) * \
                 (kprop.Pc / self.P)
 
 
     """------------------- Stability test calculation -----------------------"""
 
-    def StabilityTest(self, kprop, z):
+    def StabilityTest(self, z):
         ''' In the lnphi function: 0 stands for vapor phase and 1 for liquid '''
     #****************************INITIAL GUESS******************************#
     ## Both approaches bellow should be used in case the phase is in the critical region
@@ -51,10 +52,10 @@ class StabilityCheck:
         Y = z / self.K
         Yold = 0.9 * Y
         y = Y / sum(Y)
-        lnphiz = self.EOS.lnphi(kprop, z, 0)
+        lnphiz = self.EOS.lnphi(z, 0)
         while max(abs(Y / Yold - 1)) > 1e-9: #convergência
             Yold = np.copy(Y)
-            lnphiy = self.EOS.lnphi(kprop, y, 1)
+            lnphiy = self.EOS.lnphi(y, 1)
             Y = np.exp(np.log(z) + lnphiz - lnphiy)
             y = Y / sum(Y)
         stationary_point1 = sum(Y)
@@ -65,10 +66,10 @@ class StabilityCheck:
         Y = self.K * z
         Y_old = 0.9 * Y
         y = Y / sum(Y)
-        lnphiz = self.EOS.lnphi(kprop, z, 1)
+        lnphiz = self.EOS.lnphi(z, 1)
         while max(abs(Y / Y_old - 1)) > 1e-9:
             Y_old = np.copy(Y)
-            lnphiy = self.EOS.lnphi(kprop, y, 0)
+            lnphiy = self.EOS.lnphi(y, 0)
             Y = np.exp(np.log(z) + lnphiz - lnphiy)
             y = Y / sum(Y)
         stationary_point2 = sum(Y)
@@ -78,30 +79,30 @@ class StabilityCheck:
 
     """-------------------- Biphasic flash calculations ---------------------"""
 
-    def molar_properties(self, kprop, z):
+    def molar_properties(self, z):
         self.fv = 2 * np.ones(len(z)); self.fl = np.ones(len(z)) #entrar no primeiro loop
-        if kprop.Nc<= 2: self.molar_properties_Whitson(kprop, z)
-        else: self.molar_properties_Yinghui(kprop, z)
+        if kprop.Nc<= 2: self.molar_properties_Whitson(z)
+        else: self.molar_properties_Yinghui(z)
 
-    def deltaG_molar(self, kprop, l, ph):
-        lnphi = [self.EOS.lnphi(kprop, l, 1 - ph), self.EOS.lnphi(kprop, l, ph)]
+    def deltaG_molar(self, l, ph):
+        lnphi = [self.EOS.lnphi(l, 1 - ph), self.EOS.lnphi(l, ph)]
         deltaG_molar = sum(l * (lnphi[1 - ph] - lnphi[ph]))
         if deltaG_molar < 0: ph = 1 - ph
         return ph
 
-    def deltaG_molar_vectorized(EOS, kprop, l, ph):
+    def deltaG_molar_vectorized(EOS, l, ph):
         lnphi = np.empty([2, len(ph)])
-        lnphi[0,:] = EOS.lnphi(kprop, l, 1 - ph)
-        lnphi[1,:] = EOS.lnphi(kprop, l, ph)
+        lnphi[0,:] = EOS.lnphi(l, 1 - ph)
+        lnphi[1,:] = EOS.lnphi(l, ph)
 
         deltaG_molar = np.sum(l * (lnphi[1 - ph] - lnphi[ph]), axis=0)
         ph[deltaG_molar<0] = 1 - ph[deltaG_molar<0]
         return ph
 
-    def lnphi_based_on_deltaG(self,kprop, l, ph):
+    def lnphi_based_on_deltaG(self,l, ph):
         ph = np.array(ph)[:,np.newaxis]
-        ph = StabilityCheck.deltaG_molar_vectorized(self.EOS, kprop, l, ph)
-        return self.EOS.lnphi(kprop, l, ph)
+        ph = StabilityCheck.deltaG_molar_vectorized(self.EOS, l, ph)
+        return self.EOS.lnphi(l, ph)
 
     def solve_objective_function_Yinghui(self, z1, zi, z, K1, KNc, Ki):
 
@@ -115,7 +116,7 @@ class StabilityCheck:
             if all((self.K[z != 0] - 1) * z1 / z[z != 0] > 0):
                 aux_eq = aux_eq[aux_eq >= 0] #se arr<0 é descartado
                 x1_max = min(aux_eq)
-            else: x1_min = max(np.append(arr, 0))
+            else: x1_min = max(np.append(aux_eq, 0))
 
         if x1_min > x1_max: raise ValueError('There is no physical root')
 
@@ -168,13 +169,13 @@ class StabilityCheck:
 
         self.y = self.K * self.x
 
-    def molar_properties_Yinghui(self, kprop, z):
+    def molar_properties_Yinghui(self, z):
         #razao = fl/fv -> an arbitrary vector to enter in the iterative mode
         razao = np.ones(kprop.Nc)/2
         while max(abs(razao - 1)) > 1e-9:
             self.Yinghui_method(z)
-            lnphil = self.lnphi_based_on_deltaG(kprop, self.x, 1)
-            lnphiv = self.lnphi_based_on_deltaG(kprop, self.y, 0)
+            lnphil = self.lnphi_based_on_deltaG(self.x, 1)
+            lnphiv = self.lnphi_based_on_deltaG(self.y, 0)
             self.fl = np.exp(lnphil) * (self.x * self.P)
             self.fv = np.exp(lnphiv) * (self.y * self.P)
             razao = np.divide(self.fl, self.fv, out = razao / razao * (1 + 1e-10),
@@ -205,12 +206,12 @@ class StabilityCheck:
         self.x = z / (1 + self.V * (self.K - 1))
         self.y = self.K * self.x
 
-    def molar_properties_Whitson(self, kprop, z):
+    def molar_properties_Whitson(self, z):
         razao = np.ones(kprop.Nc)/2
         while max(abs(self.fv / self.fl - 1)) > 1e-9:
             self.solve_objective_function_Whitson(z)
-            lnphil = self.lnphi_based_on_deltaG(kprop, self.x, 1)
-            lnphiv = self.lnphi_based_on_deltaG(kprop, self.y, 0)
+            lnphil = self.lnphi_based_on_deltaG(self.x, 1)
+            lnphiv = self.lnphi_based_on_deltaG(self.y, 0)
             self.fv = np.exp(lnphiv) * (self.y * self.P)
             self.fl = np.exp(lnphil) * (self.x * self.P)
             razao = np.divide(self.fl, self.fv, out = razao / razao * (1 + 1e-10),
@@ -221,6 +222,30 @@ class StabilityCheck:
         #Isso vem de uma junção da Lei de Dalton com a Lei de Raoult
         Pv = self.K * self.P
         self.Pbubble = sum(self.x * Pv)
+
+    def update_EOS_dependent_properties(self, fprop):
+        #self.EOS = self.EOS_class(self.P, fprop.T)
+        ph_L = 1 #np.ones(ctes.n_volumes).astype(int)
+        ph_V = 0 #np.zeros(ctes.n_volumes).astype(int)
+        self.ksi_L, self.rho_L = self.get_EOS_dependent_properties(fprop, self.x, ph_L)
+        self.ksi_V, self.rho_V = self.get_EOS_dependent_properties(fprop, self.y, ph_V)
+
+    def get_EOS_dependent_properties(self, fprop, l, ph):
+        #l - any phase molar composition
+        # This won't work for everything, I'm sure of that. Still need, tho, to check the cases that this won't work.
+        #l = l[:,np.newaxis]
+        A, B = self.EOS.coefficients_cubic_EOS(l)
+        Z_reais = self.EOS_class.Z(A, B)
+        ph = self.deltaG_molar(l, ph)
+        Z = min(Z_reais) * ph + max(Z_reais) * (1 - ph)
+        Z = Z_reais
+        v = Z*ctes.R*fprop.T/self.P - sum(kprop.s*self.EOS.b*l)*6.243864674*10**(-5) #check this unity (ft³/lbmole to m³/mole)
+        ksi_phase = 1 / v
+        #ksi_phase = self.P / (Z * kprop.R* self.T)
+        Mw_phase = sum(l * kprop.Mw)
+        rho_phase = ksi_phase * sum(l * kprop.Mw)
+        return ksi_phase, rho_phase
+
 
     '''def TPD(self, z): #ainda não sei onde usar isso
         x = np.zeros(self.Nc)
