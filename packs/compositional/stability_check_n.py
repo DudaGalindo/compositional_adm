@@ -30,12 +30,11 @@ class StabilityCheck_n(object):
         self.Nc = len(w)
         self.K = np.empty(self.Nc)
         self.fv = np.empty(self.Nc)
-        self.fl = np.empty(self.Nc)
+        self.fl = np.empty(self.Nc)/2
         self.L = 0.
         self.V = 0.
         self.x = np.ones(self.Nc)
         self.y = np.ones(self.Nc)
-        self.Pbubble = 0.
         self.ksi_L = 0.
         self.ksi_V = 0.
         self.rho_L = 0.
@@ -50,12 +49,8 @@ class StabilityCheck_n(object):
             self.molar_properties(EOS, z)
         else:
             sp1,sp2 = self.StabilityTest(EOS, z)
-        if np.round(sp1,8) > 1 or np.round(sp2,8) > 1: self.molar_properties(EOS, z)
-        else: #tiny manipulation
-            self.x = z; self.y = z
-            self.bubble_point_pressure()
-            if self.P > self.Pbubble: self.L = 1; self.V = 0; ph = 1
-            else: self.L = 0.; self.V = 1.; ph = 0.
+            self.molar_properties(EOS, z)
+            if np.round(sp1,8) > 1 or np.round(sp2,8) > 1: self.molar_properties(EOS, z)
 
         self.update_EOS_dependent_properties(EOS, Mw)
 
@@ -106,9 +101,9 @@ class StabilityCheck_n(object):
     """-------------------- Biphasic flash calculations ---------------------"""
 
     def molar_properties(self, EOS, z):
-        self.fv = 2 * np.ones(len(z)); self.fl = np.ones(len(z)) #entrar no primeiro loop
-        if self.Nc<= 2: self.molar_properties_Whitson(EOS, z)
-        else: self.molar_properties_Yinghui(EOS, z)
+        if self.Nc < 2: self.vapor_pressure(EOS)
+        if self.Nc == 2: self.molar_properties_Whitson(EOS, z)
+        elif self.Nc>2: self.molar_properties_Yinghui(EOS, z)
 
     def deltaG_molar(self, EOS, l, ph):
         lnphi = np.empty(2).reshape(2,self.Nc)
@@ -255,10 +250,25 @@ class StabilityCheck_n(object):
             #razao = np.floor_divide(self.fl, self.fv, out = out, where = True)
             self.K = razao * self.K
 
-    def bubble_point_pressure(self):
+    def vapor_pressure(self, EOS):
         #Isso vem de uma junção da Lei de Dalton com a Lei de Raoult
-        Pv = self.K * self.P
-        self.Pbubble = np.sum(self.x * Pv)
+        P_fix = self.P
+
+        Pv = self.K[0] * self.P
+        self.P = Pv
+        self.fv = 2*self.fl
+        while np.max(np.abs(self.fv / self.fl - 1)) > 1e-9:
+            lnphil = self.lnphi_based_on_deltaG(EOS, self.x, 1)
+            lnphiv = self.lnphi_based_on_deltaG(EOS, self.y, 0)
+            self.fv = np.exp(lnphiv) * (self.y * self.P)
+            self.fl = np.exp(lnphil) * (self.x * self.P)
+            razao  = self.fl[self.fv!=0]/self.fv[self.fv!=0]*(1+1e-10)
+            Pv = razao[0] * Pv
+            self.P = Pv
+
+        self.P = P_fix
+        if P_fix > Pv: self.L = 1.; self.V = 0.
+        else: self.L = 0.; self.V = 1.
 
     def update_EOS_dependent_properties(self, EOS, Mw):
         #EOS = EOS_class(self.P, fprop.T, kprop)

@@ -40,12 +40,12 @@ class run_simulation:
     def get_initial_properties(self, M, wells, load, data_loaded):
         fprop = FluidProperties()
         if ctes.load_k:
-            #fprop_block = StabilityCheck(fprop.P[0], fprop.T.ravel()[0])
-            #fprop_block.run(ctes.z)
-            #fprop_block.update_EOS_dependent_properties(fprop)
-            x, y, L, V, ksi_L, ksi_V, rho_L, rho_V = run_simulation.run_stability_and_flash(fprop.P,
-            fprop.T, fprop.z, ctes.w, ctes.Tc, ctes.Pc, ctes.Bin, ctes.Mw)
-            fprop.inputs_fluid_properties(x, y, L, V, ksi_L, ksi_V, rho_L, rho_V)
+            fprop_block = StabilityCheck(fprop.P[0], fprop.T)
+            fprop_block.run(fprop.z[:,0])
+            fprop_block.update_EOS_dependent_properties(fprop)
+            #x, y, L, V, ksi_L, ksi_V, rho_L, rho_V = run_simulation.run_stability_and_flash(fprop.P,
+            #fprop.T, fprop.z, ctes.w, ctes.Tc, ctes.Pc, ctes.Bin, ctes.Mw)
+            fprop.inputs_fluid_properties(fprop_block.x, fprop_block.y, fprop_block.L, fprop_block.V, fprop_block.ksi_L, fprop_block.ksi_V, fprop_block.rho_L, fprop_block.rho_V)
         else: fprop.x = []; fprop.y = []
 
         if ctes.load_w: fprop.inputs_water_properties()
@@ -59,12 +59,11 @@ class run_simulation:
         self.delta_t = CompositionalFVM().runIMPEC(M, wells, fprop, self.delta_t)
 
         self.t += self.delta_t
-        import pdb; pdb.set_trace()
         if ctes.load_k and ctes.compressible_k:
             x, y, L, V, ksi_L, ksi_V, rho_L, rho_V = run_simulation.run_stability_and_flash(fprop.P,
             fprop.T, fprop.z, ctes.w, ctes.Tc, ctes.Pc, ctes.Bin, ctes.Mw)
             fprop.update_fluid_properties(x, y, L, V, ksi_L, ksi_V, rho_L, rho_V)
-
+        
         self.p1.run_inside_loop(M, fprop)
         self.update_vpi(fprop, wells)
         self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
@@ -83,8 +82,8 @@ class run_simulation:
     @jit(nopython=True)
     def run_stability_and_flash(P, T, z, w, Tc, Pc, Bin, Mw):
 
-        x = np.empty(len(w)).reshape(len(w),len(P))
-        y = np.empty(len(w)).reshape(len(w),len(P))
+        x = np.empty(z.shape)
+        y = np.empty(z.shape)
         L = np.ones(len(P), dtype = np.float64); V = np.ones(len(P), dtype = np.float64)
         ksi_L = np.ones(len(P), dtype = np.float64); ksi_V = np.ones(len(P), dtype = np.float64)
         rho_L = np.ones(len(P), dtype = np.float64); rho_V = np.ones(len(P), dtype = np.float64)
