@@ -87,9 +87,13 @@ class PropertiesCalc:
         fprop.phase_mole_numbers = np.zeros([1, ctes.n_phases, ctes.n_volumes])
 
         if ctes.load_k:
-            fprop.phase_mole_numbers[0,0,:] = fprop.component_mole_numbers[ctes.Nc-1,:]/ \
-                                               fprop.component_molar_fractions[ctes.Nc-1,0,:]
-            fprop.phase_mole_numbers[0,1,:] = fprop.phase_mole_numbers[0,0,:]*fprop.V/fprop.L
+
+            fprop.phase_mole_numbers[0,0,:] = np.sum(fprop.component_mole_numbers[0:ctes.Nc,:], axis = 0) * \
+                                               fprop.L
+            fprop.phase_mole_numbers[0,1,:] = np.sum(fprop.component_mole_numbers[0:ctes.Nc,:], axis = 0) * \
+                                               fprop.V
+            #fprop.phase_mole_numbers[0,1,fprop.L!=0] = fprop.phase_mole_numbers[0,0,fprop.L!=0]*fprop.V[fprop.L!=0]/fprop.L[fprop.L!=0]
+            #fprop.phase_mole_numbers[0,1,fprop.L==0] = fprop.phase_mole_numbers[0,0,fprop.L==0]
             #fprop.phase_mole_numbers[0,1,:] = fprop.component_mole_numbers[fprop.y!=0,:][0,:]/fprop.y[fprop.y!=0][0]
 
         if ctes.load_w:

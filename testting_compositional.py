@@ -32,10 +32,11 @@ tmax = 173958
 load = data_loaded['load_data']
 convert = data_loaded['convert_english_to_SI']
 
+t = time.time()
 sim = run_simulation(name_current, name_all)
 M, data_impress, wells, fprop, load = sim.initialize(load, convert, mesh)
-t = time.time()
-while run_criteria < stop_criteria: #and loop < loop_max:
+loop_max = 1
+while run_criteria < stop_criteria:# and loop < loop_max:
     sim.run(M, wells, fprop, load)
     #import pdb; pdb.set_trace()
     if data_loaded['use_vpi']: run_criteria = sim.vpi
@@ -48,7 +49,6 @@ while run_criteria < stop_criteria: #and loop < loop_max:
         #if (sim.t + sim.delta_t) > stop_criteria:
         #    sim.delta_t = stop_criteria - sim.t
     loop = sim.loop
-
     print(sim.t)
 
 print(fprop.P)

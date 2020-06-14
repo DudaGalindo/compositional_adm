@@ -23,7 +23,7 @@ class TPFASolver:
         self.dVtk = np.zeros([ctes.n_components, ctes.n_volumes])
 
         if ctes.load_k:
-            EOS = self.EOS_class(fprop.P, fprop.T)
+            EOS = self.EOS_class(fprop.T)
             if not ctes.compressible_k:
                 dVtP = np.zeros(ctes.n_volumes)
                 self.dVtk[0:ctes.Nc,:] = 1 / fprop.phase_molar_densities[0,0,:]

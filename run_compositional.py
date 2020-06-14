@@ -11,9 +11,9 @@ import update_inputs_compositional
 from packs.utils import constants as ctes
 import os
 import time
+import cProfile
 
 class run_simulation:
-
     def __init__(self, name_current, name_all):
         self.name_current_compositional_results =os.path.join(direc.flying, name_current + '.npy')
         self.name_all_compositional_results = os.path.join(direc.flying, name_all)
@@ -38,12 +38,9 @@ class run_simulation:
     def get_initial_properties(self, M, wells, load, data_loaded):
         fprop = FluidProperties()
         if ctes.load_k:
-            fprop_block = StabilityCheck(fprop.P[0], fprop.T)
-            fprop_block.run(fprop.z)
-            fprop_block.update_EOS_dependent_properties(fprop)
-            fprop.inputs_fluid_properties(fprop_block)
+            StabilityCheck(fprop).run(fprop)
+            fprop.inputs_fluid_properties()
         else: fprop.x = []; fprop.y = []
-
         if ctes.load_w: fprop.inputs_water_properties()
 
         self.p1.run_outside_loop(M, fprop)
@@ -52,23 +49,18 @@ class run_simulation:
     def run(self, M, wells, fprop, load):
         t0 = time.time()
         t_obj = delta_time(fprop) #get wanted properties in t=n
+
         self.delta_t = CompositionalFVM().runIMPEC(M, wells, fprop, self.delta_t)
-
         self.t += self.delta_t
-        if ctes.load_k and ctes.compressible_k:
-            for i in range(ctes.n_volumes):
-                fprop_block = StabilityCheck(fprop.P[0], fprop.T)
-                fprop_block.run(fprop.z[0:ctes.Nc,i])
-                fprop_block.update_EOS_dependent_properties(fprop)
-                fprop.update_fluid_properties(fprop_block, i)
-
+        if ctes.load_k and ctes.compressible_k: StabilityCheck(fprop).run(fprop)
+        
         self.p1.run_inside_loop(M, fprop)
         self.update_vpi(fprop, wells)
         self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
         self.update_loop()
         t1 = time.time()
         dt = t1 - t0
-        #import pdb; pdb.set_trace()
+
         # Talvez isso esteja antes de self.all_compositional_results dentro de update_current_compositional_results
         if self.use_vpi:
             if np.round(self.vpi,3) in self.vpi_save:

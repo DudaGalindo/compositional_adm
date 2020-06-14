@@ -38,7 +38,7 @@ compositional_data:
   equation_of_state: PengRobinson
 
   rock_compressibility: 7.252e-8
-  Pf: 13.78951458E6
+  Pf: 13.79E6
 
   #capillary pressure data - not ok with this
   Cpc: 62052.84
@@ -46,8 +46,8 @@ compositional_data:
 
   time_data:
     deltaPlim: 68.9476
-    deltaNlim: .01
-    deltaSlim: .01
+    deltaNlim: .001
+    deltaSlim: .001
     deltaVlim: .001
     delta_t_ini: 1000
     delta_tmax: 7000
@@ -106,7 +106,7 @@ Permeability:
 Pressure:
   r1:
     type: all
-    value: 13.78951458E6
+    value: 13.79E6
 
 Temperature:
   r1:
@@ -120,4 +120,4 @@ Wells:
     prescription: P
     type: Producer
     type_region: box
-    value: 13100038.3
+    value: 13.1e6

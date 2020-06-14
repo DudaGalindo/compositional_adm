@@ -18,7 +18,7 @@ Porosity:
 Pressure:
   r1:
     type: all
-    value: 13.78951458E6
+    value: 13.79E6
 Saturation:
   r1:
     type: all
@@ -40,13 +40,13 @@ Wells:
     prescription: P
     type: Producer
     type_region: box
-    value: 13100038.3
+    value: 13.1e6
 compositional: true
 compositional_data:
   CFL: 0.5
   Cpc: 62052.84
   Epc: 2
-  Pf: 13.78951458E6
+  Pf: 13.79E6
   capillary_pressure: Chang
   component_data:
     Bin:
@@ -83,9 +83,9 @@ compositional_data:
   rock_compressibility: 7.252e-08
   tempo_maximo: null
   time_data:
-    deltaNlim: 0.01
+    deltaNlim: 0.001
     deltaPlim: 68.9476
-    deltaSlim: 0.01
+    deltaSlim: 0.001
     deltaVlim: 0.001
     delta_t_ini: 1000
     delta_tmax: 7000
