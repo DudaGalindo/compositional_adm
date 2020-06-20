@@ -1,5 +1,6 @@
 import numpy as np
 from ..directories import data_loaded
+from ..compositional import equation_of_state
 
 def init(M):
     global n_volumes
@@ -14,6 +15,9 @@ def init(M):
     global Cf
     global Vbulk
     global R
+    global EOS_class
+
+    EOS_class = getattr(equation_of_state, data_loaded['compositional_data']['equation_of_state'])
 
     Pf = np.array(data_loaded['compositional_data']['Pf']).astype(float)
     Cf = np.array(data_loaded['compositional_data']['rock_compressibility']).astype(float)

@@ -40,6 +40,7 @@ class run_simulation:
         if ctes.load_k:
             StabilityCheck(fprop).run(fprop)
             fprop.inputs_fluid_properties()
+            self.p2 = StabilityCheck(fprop)
         else: fprop.x = []; fprop.y = []
         if ctes.load_w: fprop.inputs_water_properties()
 
@@ -52,8 +53,8 @@ class run_simulation:
 
         self.delta_t = CompositionalFVM().runIMPEC(M, wells, fprop, self.delta_t)
         self.t += self.delta_t
-        if ctes.load_k and ctes.compressible_k: StabilityCheck(fprop).run(fprop)
-        
+        if ctes.load_k and ctes.compressible_k: self.p2.run(fprop)
+
         self.p1.run_inside_loop(M, fprop)
         self.update_vpi(fprop, wells)
         self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1

@@ -8,7 +8,7 @@ from . import equation_of_state
 
 class TPFASolver:
     def __init__(self):
-        self.EOS_class = getattr(equation_of_state, data_loaded['compositional_data']['equation_of_state'])
+        pass
 
     def get_pressure(self, M, wells, fprop, delta_t,r):
         if r==0.8: self.dVt_derivatives(fprop)
@@ -23,11 +23,11 @@ class TPFASolver:
         self.dVtk = np.zeros([ctes.n_components, ctes.n_volumes])
 
         if ctes.load_k:
-            EOS = self.EOS_class(fprop.T)
+            self.EOS = ctes.EOS_class(fprop.T)
             if not ctes.compressible_k:
                 dVtP = np.zeros(ctes.n_volumes)
                 self.dVtk[0:ctes.Nc,:] = 1 / fprop.phase_molar_densities[0,0,:]
-            else: self.dVtk[0:ctes.Nc,:], dVtP = EOS.get_all_derivatives(fprop)
+            else: self.dVtk[0:ctes.Nc,:], dVtP = self.EOS.get_all_derivatives(fprop)
 
         else: dVtP = np.zeros(ctes.n_volumes)
 

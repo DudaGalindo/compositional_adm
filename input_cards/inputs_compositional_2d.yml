@@ -1,6 +1,6 @@
 #Oil injection in oil reservoir 2-D with 1 oil component
-mesh_name: 25x25x1.msh
-name_save_file: 'results_2d_injection_25_case'
+mesh_name: 45x45x1.msh
+name_save_file: 'results_2d_injection_45_case'
 
 n_test: 0
 compositional: True
@@ -114,8 +114,8 @@ Temperature:
 
 Wells:
   P1:
-    p0: [292.608, 292.608, -0.3048]
-    p1: [316.992, 316.992, 0.0]
+    p0: [298.0266667, 298.0266667, -0.3048]
+    p1: [311.5733333, 311.5733333, 0.0]
     prescription: Q
     type: Injector
     type_region: box
