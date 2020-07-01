@@ -1,11 +1,11 @@
 #Oil injection in oil reservoir 2-D with 1 oil component
-mesh_name: 45x45x1.msh
-name_save_file: 'results_2d_injection_45_case'
+mesh_name: 5x5x1.msh
+name_save_file: 'results_2d_injection_5_case'
 
 n_test: 0
 compositional: True
 hidrocarbon_components: True
-compressible_fluid: True
+compressible_fluid: False
 water_component: False
 use_vpi: False
 
@@ -31,6 +31,7 @@ compositional_data:
   CFL: 0.5
   vpis_para_gravar_vtk: [0.0038]
   time_to_save: [31536000.]
+  maximum_time: 31536000.
   phase_viscosity: LorenzBrayClark
   relative_permeability: BrooksAndCorey
   capillary_pressure: Chang
@@ -83,7 +84,8 @@ compositional_data:
     Mw: [142.28e-3]
     w: [0.4890]
     Bin: [[0]]
-    vshift_parameter: [0.085]
+    Pv: [0]
+    vshift_parameter: [0.0]
 
 #water saturation data
 Saturation:
@@ -114,12 +116,12 @@ Temperature:
 
 Wells:
   P1:
-    p0: [298.0266667, 298.0266667, -0.3048]
-    p1: [311.5733333, 311.5733333, 0.0]
+    p0: [243.84, 243.84, -0.3048]
+    p1: [365.76, 365.76, 0.0]
     prescription: Q
     type: Injector
     type_region: box
-    value: 2.720252624e-6
+    value: 2.72e-6
     z: [1.]
     ksi_total: 4587.38948489
     value_type: volumetric

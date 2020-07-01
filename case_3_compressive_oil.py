@@ -65,18 +65,20 @@ for arq in arquivos:
             b = b+1
 
         x = np.linspace(0,1,100)
-        plt.figure(1)
         #plt.title('t = 5 days')
         t = t/86400
-        plt.plot(x_ans,p_ans[0,:],'r',x, pressure[0,:])
         '''for tt in range(len(t)):
             plt.plot(x_ans, p_ans[tt,:], label = ('{}Days'.format(t[tt])) )'''
 
+
+        plt.figure(1)
+        plt.plot(x_ans,p_ans[1,:],'r',x, pressure[1,:], 'g')
         plt.grid()
         plt.legend(bbox_to_anchor=(.48, 1.15), loc=9, borderaxespad=0., ncol = 5, handletextpad = 0.1)
         plt.ylabel('Pressure (psi)')
         plt.xlabel('Dimensionless distance')
-        plt.savefig('results/compositional/pressure_comp_oil1' + '.png')
+        plt.grid()
+        plt.savefig('results/compositional/pressure_comp_oil11' + '.png')
         import pdb; pdb.set_trace()
 
 

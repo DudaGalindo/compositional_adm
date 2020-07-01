@@ -19,7 +19,7 @@ mesh = 'mesh/' + data_loaded['mesh_name']
 
 if data_loaded['use_vpi']:
     stop_criteria = max(data_loaded['compositional_data']['vpis_para_gravar_vtk'])
-else: stop_criteria = max(data_loaded['compositional_data']['time_to_save'])
+else: stop_criteria = data_loaded['compositional_data']['maximum_time']
 max_delta_t = max(data_loaded['compositional_data']['time_to_save'])
 loop_max = 1000
 run_criteria = 0
@@ -42,10 +42,14 @@ while run_criteria < stop_criteria:# and loop < loop_max:
     if data_loaded['use_vpi']: run_criteria = sim.vpi
     else:
         run_criteria = sim.t
-        t_next = sim.time_save[sim.time_save > sim.t]
-        if len(t_next)>1: t_next = t_next[0]
+        if sim.time_save=='all':
+            t_next = sim.t + sim.delta_t
+        else:
+            t_next = sim.time_save[sim.time_save > sim.t]
+            if len(t_next)>1: t_next = t_next[0]
         if sim.t + sim.delta_t > t_next:
             sim.delta_t = t_next - sim.t
+        #if sim.loop>60: import pdb; pdb.set_trace()
         #if (sim.t + sim.delta_t) > stop_criteria:
         #    sim.delta_t = stop_criteria - sim.t
     loop = sim.loop

@@ -43,13 +43,13 @@ class PengRobinson:
         n_reais = np.sum(root*1, axis = 1)
         Z[~root[n_reais>1]] = Z[root[n_reais > 1]][np.any(root[n_reais>1]==True, axis = 1)].ravel()
         Z[~root[n_reais==1]] = np.repeat(Z[root[n_reais == 1]], 2)
+        #Z = Z[Z > 0]
         Z = np.min(Z, axis = 1) * ph + np.max(Z, axis = 1) * (1 - ph)
         Z = np.real(Z)
         return Z
         #Z = np.min(Z, axis = 1) * ph + np.max(Z, axis=1) * ph
 
     def lnphi(self, l, P, ph):
-        if l.shape[1] == len(ctes.w): l = l.T
         A, B = self.coefficients_cubic_EOS_vectorized(l, P)
         Z = self.Z_vectorized(A, B, ph)
         lnphi = self.lnphi_calculation(A, B, Z)
@@ -80,16 +80,20 @@ class PengRobinson:
         y = fprop.component_molar_fractions[0:ctes.Nc,1,:]
         Nl = fprop.phase_mole_numbers[0,0,:]
         Nv = fprop.phase_mole_numbers[0,1,:]
-        Nkl = x * Nl
-        Nkv = y * Nv
         P = fprop.P
         T = fprop.T
-        dfildP, dfildnij, dZldP_parcial, dZldnij_parcial, Zl = \
-                self.get_phase_derivatives(P, T, x, Nkl, Nl, np.ones(ctes.n_volumes))
-        dfivdP, dfivdnij, dZvdP_parcial, dZvdnij_parcial, Zv = \
-                self.get_phase_derivatives(P, T, y, Nkv, Nv, np.zeros(ctes.n_volumes))
+        '''x[:,Nv<0] = fprop.z[:,Nv<0]
+        y[:,Nl<0] = fprop.z[:,Nl<0]
+        Nl[Nv<0] = Nl[Nv<0] + Nv[Nv<0]
+        Nv[Nv<0] = 0
+        Nv[Nl<0] = Nl[Nl<0] + Nv[Nl<0]
+        Nl[Nl<0] = 0'''
+        dlnfildP, dlnfildnij, dZldP_parcial, dZldnij_parcial, Zl = \
+                self.get_phase_derivatives(P, T, x, Nl, np.ones(ctes.n_volumes))
+        dlnfivdP, dlnfivdnij, dZvdP_parcial, dZvdnij_parcial, Zv = \
+                self.get_phase_derivatives(P, T, y, Nv, np.zeros(ctes.n_volumes))
         dnldP, dnvdP, dnldNk, dnvdNk, dnildP, dnivdP, dnildNk, dnivdNk = \
-                self.dnij_dNk_dP(dfildP, dfivdP, dfildnij, dfivdnij)
+                self.dnij_dNk_dP(dlnfildP, dlnfivdP, dlnfildnij, dlnfivdnij, Nl, Nv)
         dZldP, dZvdP, dZldNk, dZvdNk = self.dZ_dP_dNk(dZldP_parcial,
                 dZvdP_parcial, dZldnij_parcial, dZvdnij_parcial, dnildP,
                 dnivdP, dnildNk, dnivdNk)
@@ -97,34 +101,37 @@ class PengRobinson:
                         dZvdP, dZldNk, dZvdNk, P, T, Zl, Zv, Nl, Nv)
         return dVtdNk, dVtdP
 
-    def get_phase_derivatives(self, P, T, xij, Nij, Nj, ph):
+    def get_phase_derivatives(self, P, T, xij, Nj, ph):
         A, B = self.coefficients_cubic_EOS_vectorized(xij, P)
         Z = self.Z_vectorized(A, B, ph)
         dAdP = self.dA_dP()
         dBdP = self.dB_dP()
         dbdnij = self.db_dnij(Nj)
-        dadnij = self.da_dnij(Nj, Nij)
+        dadnij = self.da_dnij(Nj, xij)
         dAdnij = self.dA_dnij(P, T, Nj, dadnij)
         dBdnij = self.dB_dnij(P, T, Nj, dbdnij)
-        dZdP_parcial, dZdnij_parcial = self.dZ_dP_dnij_parcial(dAdP, dBdP, dAdnij, dBdnij, Z, A, B)
-        dlnphidP, dlnphidnij = self.dlnphi_dP_dnij(dAdP, dBdP, dZdP_parcial, dAdnij, dBdnij,
-                                dZdnij_parcial, Z, A, B, dbdnij, dadnij, Nj)
-        dfijdP, dfijdnij = self.dfij_dP_dnij(P, dlnphidP, dlnphidnij, xij, Nj, Nij, A, B, Z)
-        return dfijdP, dfijdnij, dZdP_parcial, dZdnij_parcial, Z #e mais coisa ainda também
+        dZdP_parcial = self.dZ_dP_parcial(dAdP, dBdP, Z, A, B)
+        dZdnij_parcial = self.dZ_dnij_parcial(dAdnij, dBdnij, Z, A, B)
+        dlnphidP = self.dlnphi_dP(dAdP, dBdP, dZdP_parcial, Z, A, B)
+        dlnphidnij = self.dlnphi_dnij(dAdnij, dBdnij, dZdnij_parcial, Z, A, B, dbdnij, dadnij, Nj, P)
+        dlnfijdP = self.dlnfij_dP(P, dlnphidP)
+        dlnfijdnij = self.dlnfij_dnij(dlnphidnij, xij, Nj)
+        return dlnfijdP, dlnfijdnij, dZdP_parcial, dZdnij_parcial, Z
 
-    def db_dnij(self, Nj):
-        dbdnij = np.empty((ctes.Nc,ctes.n_volumes))
-        dbdnij[:,Nj!=0] = 1 / (Nj[Nj!=0]) * (self.b[:,np.newaxis] - self.bm[Nj!=0])
-        dbdnij[:,Nj==0] = 0.
-        dbdnij = dbdnij[np.newaxis,:,:]
-        return dbdnij
 
-    def da_dnij(self, Nj, Nij):
+    def da_dnij(self, Nj, xkj):
         dadnij = np.empty((ctes.Nc,ctes.n_volumes))
-        dadnij[:,Nj!=0] = 2 / (Nj[Nj!=0]**2) * ((Nij.T[Nj!=0] @ self.aalpha_ik.T).T - Nj[Nj!=0] * self.aalpha[Nj!=0])
+        dadnij[:,Nj!=0] = 2 / Nj[Nj!=0] * ((xkj.T[Nj!=0] @ self.aalpha_ik).T - self.aalpha[Nj!=0])
         dadnij[:,Nj==0] = 0.
         dadnij = dadnij[np.newaxis,:,:]
         return dadnij
+
+    def db_dnij(self, Nj):
+        dbdnij = np.empty((ctes.Nc,ctes.n_volumes))
+        dbdnij[:,Nj!=0] = (self.b[:,np.newaxis] - self.bm[Nj!=0]) / (Nj[Nj!=0])
+        dbdnij[:,Nj==0] = 0.
+        dbdnij = dbdnij[np.newaxis,:,:]
+        return dbdnij
 
     def dA_dnij(self, P, T, Nj, dadnij):
         dAdnij = P[np.newaxis,np.newaxis,:] / (ctes.R * T)**2 * dadnij
@@ -139,60 +146,102 @@ class PengRobinson:
         return dAdP
 
     def dB_dP(self):
-        dBdP = self.bm/(ctes.R*self.T)
+        dBdP = self.bm / (ctes.R * self.T)
         return dBdP
 
-    def dZ_dP_dnij_parcial(self, dAdP, dBdP, dAdnij, dBdnij, Z, A, B):
-        coef0 = Z - B
-        coef1 = Z ** 2 - 6 * B * Z - 2 * Z - A + 2 * B + 3 * B **2
+    def dZ_dP_parcial(self, dAdP, dBdP, Z, A, B): #OK
+        coef0 = -(Z - B)
+        coef1 = -(Z ** 2 - (6 * B + 2) * Z - A + 2 * B + 3 * B **2)
         coef2 = 3 * Z ** 2 - 2 * Z * (1 - B) + (A - 3 * B ** 2 - 2 * B)
-        dZdP =  - (dAdP * coef0 + dBdP * coef1) / coef2
-        dZdnij =  - (dAdnij * coef0 + dBdnij * coef1) / coef2
-        return dZdP, dZdnij
+        dZdP =  (dAdP * coef0 + dBdP * coef1) / coef2
+        return dZdP
 
-    def dlnphi_dP_dnij(self, dAdP, dBdP, dZdP, dAdnij, dBdnij, dZdnij, Z, A, B, dbdnij, dadnij, Nj):
-        ai = np.sum(self.aalpha_ik,axis=1)
+    def dZ_dnij_parcial(self,dAdnij, dBdnij, Z, A, B):
+        coef0 = -(Z - B)
+        coef1 = -(Z ** 2 - (6 * B + 2) * Z - A + 2 * B + 3 * B **2)
+        coef2 = 3 * Z ** 2 - 2 * Z * (1 - B) + (A - 3 * B ** 2 - 2 * B)
+        dZdnij = (dAdnij * coef0 + dBdnij * coef1) / coef2
+        return dZdnij
+
+    def dlnphi_dP(self, dAdP, dBdP, dZdP, Z, A, B): #OK i guess
+        #ai = np.sum(self.aalpha_ik, axis=1)
         coef0 = self.b[:,np.newaxis] / self.bm #coef8
         coef1 = 1 / (Z - B) #coef5
         coef2 = 2 * self.psi / self.aalpha - coef0 #coef0
-        coef3 = np.log((Z + (1 + 2**1/2)*B)/(Z + (1 - 2**1/2)*B)) #coef1
-        coef4 = 2 *(2 **(1/2)) / (Z**2 + 2*Z*B - B**2) #coef2
+        coef3 = np.log((Z + (1 + 2**(1/2))*B)/(Z + (1 - 2**(1/2))*B)) #coef1
+        coef4 = 2 * (2 **(1/2)) / (Z**2 + 2*Z*B - B**2) #coef2
 
-        dlnphiijdP = coef0 * dZdP - coef1 * (dZdP - dBdP) - coef2 / (2 **(1/2)) * ((B * dAdP - A * dBdP) /  (B **2) * coef3 +
+        dlnphiijdP = coef0 * dZdP - coef1 * (dZdP - dBdP) - coef2 / (2*(2 **(1/2))) * ((B * dAdP - A * dBdP) /  (B **2) * coef3 +
                     A / B *  coef4 * (Z * dBdP - B * dZdP))
+        return dlnphiijdP
 
-        dlnphiijdnij = np.empty((ctes.Nc, ctes.Nc, ctes.n_volumes))
+    def dlnphi_dnij(self, dAdnij, dBdnij, dZdnij, Z, A, B, dbdnij, dadnij, Nj, P):
+        coef0 = self.b[:,np.newaxis] / self.bm #coef8
+        coef1 = 1 / (Z - B) #coef5
+        coef2 = 2 * self.psi / self.aalpha - coef0 #coef0
+        coef3 = np.log((Z + (1 + 2**(1/2))*B)/(Z + (1 - 2**(1/2))*B)) #coef1
+        coef4 = 2 * (2 **(1/2)) / (Z**2 + 2*Z*B - B**2) #coef2
+
+        dlnphiijdnij = np.empty((ctes.Nc, ctes.Nc, len(P)))
         dlnphiijdnij[:,:,Nj==0] = 0
 
         aux1 = coef0[:,np.newaxis,:] / self.bm * (self.bm * dZdnij - (Z - 1) * dbdnij) - coef1 * (dZdnij - dBdnij)
         aux2_1 = coef2[:,np.newaxis,:] * ((B * dAdnij - A * dBdnij) / B**2 * coef3 + A / B * coef4 * (Z * dBdnij - B * dZdnij))
-        aux2_2_1 =  2 * (ai[:,np.newaxis] - (Nj/self.aalpha * dadnij + 1) / self.aalpha * self.psi[:,np.newaxis,:])
+        aux2_2_1 =  2 * (self.aalpha_ik[:,:,np.newaxis] - (Nj / self.aalpha * dadnij + 1) * self.psi[:,np.newaxis,:])
         aux2_2_2 = coef0[:,np.newaxis,:] / self.bm * dbdnij
+        dlnphiijdnij[:,:,Nj!=0] = aux1[:,:,Nj!=0] - 1 / (2 * (2 **(1/2))) * (aux2_1[:,:,Nj!=0] + A[Nj!=0] / B[Nj!=0] * coef3[Nj!=0] *
+                                (aux2_2_1 [:,:,Nj!=0] / (Nj[Nj!=0] * self.aalpha[Nj!=0]) + aux2_2_2[:,:,Nj!=0]))
+        return dlnphiijdnij
 
-        dlnphiijdnij[:,:,Nj!=0] = aux1[:,:,Nj!=0] - 1 / ( 2 *(2 **(1/2))) * (aux2_1[:,:,Nj!=0] + A[Nj!=0] / B[Nj!=0] * coef3[Nj!=0] *
-                                (aux2_2_1[:,:,Nj!=0] / (Nj[Nj!=0] * self.aalpha[Nj!=0]) + aux2_2_2[:,:,Nj!=0]))
+    def dlnfij_dP(self, P, dlnphidP):
+        dlnfijdP = dlnphidP + 1 / P[np.newaxis,:]
+        return dlnfijdP
 
-        return dlnphiijdP, dlnphiijdnij
+    def dlnfij_dnij(self, dlnphidnij, xij, Nj):
+        dlnfijdnij = np.empty(dlnphidnij.shape)
+        dlnfijdnij[:,:,Nj!=0] = (dlnphidnij[:,:,Nj!=0] + 1 / xij[:,np.newaxis,Nj!=0] * (np.identity(ctes.Nc)[:,:,np.newaxis] -
+                                xij[:,np.newaxis, Nj!=0]) / Nj[Nj!=0])
 
-    def dfij_dP_dnij(self, P, dlnphidP, dlnphidnij, xij, Nj, Nij, A, B, Z):
-        dfijdnij = np.empty(dlnphidnij.shape)
-        lnphiij = self.lnphi_calculation(A, B, Z)
-        dphidP = dlnphidP * np.exp(lnphiij)
-        dphidnij = dlnphidnij * np.exp(lnphiij[:,np.newaxis,:])
-        dfijdP = xij * (np.exp(lnphiij) + P[np.newaxis,:] * dphidP)
-        dfijdnij[:,:,Nj!=0] = P[Nj!=0] * (dphidnij[:,:,Nj!=0] * xij[:,np.newaxis,Nj!=0] + np.exp(lnphiij[:,np.newaxis,Nj!=0]) * \
-                  (1 - xij[:,np.newaxis,Nj!=0]) / Nj[Nj!=0])
-        dfijdnij[:,:,Nj==0] = 0
-        return dfijdP, dfijdnij
+        dlnfijdnij[:,:,Nj==0] = 0
+        return dlnfijdnij
+
+    def dnij_dNk_dP(self, dlnfildP, dlnfivdP, dlnfildnij, dlnfivdnij, Nl, Nv):
+        dnivdNk = np.empty(dlnfildnij.shape)
+        dnivdP = np.empty(dlnfildP.shape)
+        dnildNk = np.empty(dlnfildnij.shape)
+        dnildP = np.empty(dlnfildP.shape)
+
+        aux = np.ones(len(Nv),dtype=bool)
+        aux[Nv == 0] = False
+        aux[Nl == 0] = False
+
+        '''Making dlnf's matrix'''
+        dlnfildnij = np.transpose(dlnfildnij[:,:,aux], (2,0,1))
+        dlnfivdnij = np.transpose(dlnfivdnij[:,:,aux], (2,0,1))
+        matrix = dlnfildnij + dlnfivdnij
+
+        '''Independent tem vector for dnsdP '''
+        v = dlnfildP[:,aux] - dlnfivdP[:,aux]
+
+        '''Solving system of equations for dnivdNk and dnivdP'''
+        dnivdP_aux = dnivdP[:,aux]
+        dnivdNk_aux = dnivdNk[:,:,aux]
+        dnivdNk_aux = np.linalg.solve(matrix, dlnfildnij).transpose((1,2,0))
+        dnivdP_aux =  np.linalg.solve(matrix, v.T).T
 
 
-    def dnij_dNk_dP(self, dfildP, dfivdP, dfildnij, dfivdnij):
-        v = dfildP - dfivdP
-        matrix = dfildnij + dfivdnij
-        dnivdP = np.linalg.solve(matrix.T, v.T).T
+        dnivdNk[:,:,aux] = dnivdNk_aux
+        dnivdNk[:,:,Nv==0] = 0
+        dnivdNk[:,:,Nl==0] = np.identity(ctes.Nc)[:,:,np.newaxis]
+
+        dnivdP[:,aux] = dnivdP_aux
+        dnivdP[:,Nv==0] = 0
+        dnivdP[:,Nl==0] = 0
+
+        '''Calculate dnildP and dnildNk'''
         dnildP = - dnivdP
-        dnivdNk = np.linalg.solve(matrix.T,dfildnij.T).T
-        dnildNk = np.identity(ctes.Nc) - dnivdNk
+        dnildNk = np.identity(ctes.Nc)[:,:,np.newaxis] - dnivdNk
+
         dnvdP = np.sum(dnivdP, axis = 0)
         dnldP = - dnvdP
         dnldNk = np.sum(dnildNk, axis = 0)
@@ -200,14 +249,14 @@ class PengRobinson:
         return dnldP, dnvdP, dnldNk, dnvdNk, dnildP, dnivdP, dnildNk, dnivdNk
 
     def dZ_dP_dNk(self, dZldP, dZvdP, dZldnij, dZvdnij, dnildP, dnivdP, dnildNk, dnivdNk):
-        dZldP = np.sum(dZldP + dZldnij.sum(axis=0) * dnildP, axis = 0)
-        dZvdP = np.sum(dZvdP + dZvdnij.sum(axis=0) * dnivdP, axis = 0)
-        dZldNk = np.sum(dZldnij * dnildNk, axis = 0)
-        dZvdNk = np.sum(dZvdnij * dnivdNk, axis = 0)
+        dZldP = dZldP + np.sum( dZldnij.sum(axis=0) * dnildP, axis = 0)
+        dZvdP = dZvdP + np.sum(dZvdnij.sum(axis=0) * dnivdP, axis = 0)
+        dZldNk = np.sum(dZldnij.sum(axis=0)[:,np.newaxis,:] * dnildNk, axis = 0)
+        dZvdNk = np.sum(dZvdnij.sum(axis=0)[:,np.newaxis,:] * dnivdNk, axis = 0)
         return dZldP, dZvdP, dZldNk, dZvdNk
 
     def dVt_dP_dNk(self, dnldP, dnvdP, dnldNk, dnvdNk, dZldP, dZvdP, dZldNk, dZvdNk, P, T, Zl, Zv, Nl, Nv):
-        coef = (ctes.R * T / P)
-        dVtdP = coef * (Nl * dZldP + Nv * dZvdP + Zl * dnldP + Zv * dnvdP - (Zl * Nl / P - Zv * Nv / P))
+        coef = ctes.R * T / P
+        dVtdP = coef * (Nl * (dZldP - Zl / P) + Nv * (dZvdP - Zv / P) + Zl * dnldP + Zv * dnvdP)
         dVtdNk = coef * (Nl * dZldNk + Nv * dZvdNk + Zl * dnldNk + Zv * dnvdNk)
         return dVtdP, dVtdNk

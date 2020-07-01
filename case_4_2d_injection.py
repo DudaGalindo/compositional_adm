@@ -66,7 +66,7 @@ for  arq in arquivos:
             pressure1 = data[4] / 6894.757
             """ Just for the 2D case """
             from packs.utils.utils_old import get_box
-            centroids = data[6]
+            centroids = data[8]
             p0 = [0,195.072,-0.3048]
             p1 = [609.6,316.992,0.]
             ind_ans = get_box(centroids,np.array([p0,p1]))
@@ -97,7 +97,7 @@ for  arq in arquivos:
             pressure2 = data[4] / 6894.757
             """ Just for the 2D case """
             from packs.utils.utils_old import get_box
-            centroids = data[6]
+            centroids = data[8]
             p0 = [0,235.712,-0.3048]
             p1 = [609.6,276.712,0.]
             ind_ans = get_box(centroids,np.array([p0,p1]))
@@ -131,7 +131,7 @@ for  arq in arquivos:
             pressure3 = data[4] / 6894.757
             """ Just for the 2D case """
             from packs.utils.utils_old import get_box
-            centroids = data[6]
+            centroids = data[8]
             p0 = [0,249.2586667,-0.3048]
             p1 = [609.6,262.8053333,0.0]
             ind_ans = get_box(centroids,np.array([p0,p1]))
@@ -164,7 +164,7 @@ for  arq in arquivos:
             pressure4 = data[4] / 6894.75729
             """ Just for the 2D case """
             from packs.utils.utils_old import get_box
-            centroids = data[6]
+            centroids = data[8]
             p0 = [0,243.84,-0.3048]
             p1 = [609.6,268.224,0.0]
             ind_ans = get_box(centroids,np.array([p0,p1]))
@@ -227,4 +227,8 @@ for  arq in arquivos:
         plt.figure(2)
         plt.plot(x4, pressure4, x, P)
         plt.savefig('results/compositional/pressure_2d2_.png')
+
+        plt.figure(3)
+        plt.plot(x3, pressure3, x, P)
+        plt.savefig('results/compositional/pressure_2d3_.png')
         import pdb; pdb.set_trace()

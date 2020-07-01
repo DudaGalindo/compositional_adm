@@ -24,7 +24,7 @@ class WellsCompositional(Wells):
         values_q = [] ## valor da vazao prescrita
         values_q_type = []
         ksi = []
-
+        zs = np.array([])
         for p in data_wells:
 
             well = data_wells[p]
@@ -32,7 +32,7 @@ class WellsCompositional(Wells):
             tipo = well['type']
             prescription = well['prescription']
             value = np.array(well['value']).astype(float)
-            zs = np.array([])
+
             if type_region == direc.types_region_data_loaded[1]: #box
 
                 p0 = well['p0']
@@ -50,7 +50,7 @@ class WellsCompositional(Wells):
                     ws_q.append(vols)
                     values_type = np.repeat(well['value_type'], nv)
                     vals = np.repeat(value, nv)
-                    zs_ = np.repeat(well['z'], nv, axis=0)
+                    zs_ = np.repeat(well['z'], nv, axis = 0)
 
                     if len(zs)==0: zs = zs_
                     else: zs = np.concatenate(zs, zs_)

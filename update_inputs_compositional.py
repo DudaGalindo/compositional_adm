@@ -31,7 +31,7 @@ class FluidProperties:
         self.L = np.empty(len(self.P))
         self.V = np.empty(len(self.P))
         if ctes.load_k:
-            self.z = np.array([data_loaded['compositional_data']['component_data']['z']]).astype(float)
+            self.z = np.array([data_loaded['compositional_data']['component_data']['z']]).astype(float).T
         else: z = []
 
     def inputs_fluid_properties(self):
@@ -47,5 +47,7 @@ class FluidProperties:
     def inputs_water_properties(self):
         self.phase_densities[0,ctes.n_phases-1,:] = data_loaded['compositional_data']['water_data']['rho_W']
         self.ksi_W0 = self.phase_densities[0,ctes.n_phases-1,:] / ctes.Mw_w
-        self.phase_molar_densities[0,ctes.n_phases-1,:] = self.ksi_W0
+        self.ksi_W = self.ksi_W0
+        self.rho_W = self.ksi_W * ctes.Mw_w
+        #self.phase_molar_densities[0,ctes.n_phases-1,:] = self.ksi_W0
         self.component_molar_fractions[ctes.n_components-1,ctes.n_phases-1,:] = 1

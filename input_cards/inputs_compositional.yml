@@ -31,7 +31,7 @@ compositional_data:
   CFL: 0.5
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [274752, 432000., 589248.0, 745632., 902880, 1059264.0, 1216512., 1372896.0, 1530144.0]
-  tempo_maximo: null
+  maximum_time: 1530144.0
   phase_viscosity: LorenzBrayClark
   relative_permeability: BrooksAndCorey
   capillary_pressure: Chang
@@ -106,7 +106,7 @@ Permeability:
 Pressure:
   r1:
     type: all
-    value: 13.79E6
+    value: 13.78951458E6
 
 Temperature:
   r1:
@@ -120,4 +120,4 @@ Wells:
     prescription: P
     type: Producer
     type_region: box
-    value: 13.1e6
+    value: 13100038.3

@@ -65,10 +65,11 @@ def component_properties():
         Mw = np.array(data_loaded['compositional_data']['component_data']['Mw']).astype(float)
         s = np.array(data_loaded['compositional_data']['component_data']['vshift_parameter']).astype(float)
         Nc = len(Mw)
+
     else: Nc = 0; z = []
     if load_w:
         Pw = np.array(data_loaded['compositional_data']['water_data']['Pw']).astype(float)
         Cw = np.array(data_loaded['compositional_data']['water_data']['Cw']).astype(float)
-        Mw_w = data_loaded['compositional_data']['water_data']['Mw_w'] * np.ones(ctes.n_volumes)
+        Mw_w = data_loaded['compositional_data']['water_data']['Mw_w'] #* np.ones(n_volumes)
     else: Cw = 0
     n_components = Nc + 1 * load_w

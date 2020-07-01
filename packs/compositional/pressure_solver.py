@@ -7,16 +7,16 @@ import scipy.sparse as sp
 from . import equation_of_state
 
 class TPFASolver:
-    def __init__(self):
-        pass
+    def __init__(self, fprop):
+        self.dVt_derivatives(fprop)
 
-    def get_pressure(self, M, wells, fprop, delta_t,r):
-        if r==0.8: self.dVt_derivatives(fprop)
+    def get_pressure(self, M, wells, fprop, delta_t):
         T = self.update_transmissibility(M, wells, fprop, delta_t)
         D = self.update_independent_terms(M, fprop, wells, delta_t)
         self.update_pressure(T, D, fprop)
         self.update_total_flux_internal_faces(M, fprop)
         self.update_flux_wells(fprop, wells, delta_t)
+
         return self.P, self.total_flux_internal_faces, self.q
 
     def dVt_derivatives(self, fprop):
@@ -110,6 +110,7 @@ class TPFASolver:
     def volume_discrepancy_independent_term(self, fprop):
         volume_discrepancy_term = fprop.Vp - fprop.Vt
         if np.max(volume_discrepancy_term/fprop.Vp) > 5e-4:
+            import pdb; pdb.set_trace()
             raise ValueError('diminuir delta_t')
         return volume_discrepancy_term
 
@@ -131,12 +132,12 @@ class TPFASolver:
             else: Wf = np.zeros(len(wells['ws_q']))
             volume_q = np.argwhere(wells['value_type'][0] == 'volumetric').ravel()
             molar_q = np.argwhere(wells['value_type'] == 'molar').ravel()
-            self.q[:,wells['ws_q'][volume_q]] = (wells['values_q'][volume_q].ravel() * wells['z'] * \
+            self.q[:,wells['ws_q'][volume_q]] = ((wells['values_q'][volume_q] * wells['z']).ravel() * \
                                                 (1 - Wf) * wells['ksi_total']).T
-
-            self.q[:,wells['ws_q'][molar_q]] = (wells['values_q'][molar_q].ravel() * wells['z']).T
+            self.q[:,wells['ws_q'][molar_q]] = (wells['values_q'][molar_q] * wells['z']).ravel().T
             well_term[wells['ws_q'][volume_q]] = wells['values_q'][volume_q].ravel().T
-            well_term[wells['ws_q'][molar_q]] = np.sum(self.dVtk[:,wells['ws_q'][molar_q]] * self.q[:,wells['ws_q'][molar_q]], axis = 0)
+            well_term[wells['ws_q'][molar_q]] = np.sum(self.dVtk[:,wells['ws_q'][molar_q]] *
+                                                self.q[:,wells['ws_q'][molar_q]], axis = 0)
         return well_term
 
     def update_independent_terms(self, M, fprop, wells, delta_t):
@@ -175,8 +176,10 @@ class TPFASolver:
                             + self.capillary_term[wp] + self.gravity_term[wp]
             n_components = ctes.n_components
             ref = 0 # componente de refererencia para pegar a mobilidade
-
-            for i in range(len(wp)):
+            mob_ratio = fprop.mobilities[:,:,wp] / np.sum(fprop.mobilities[:,:,wp], axis = 1)
+            self.q[:,wp] = np.sum(fprop.component_molar_fractions[:,:,wp] * mob_ratio *
+                            fprop.phase_molar_densities[:,:,wp] * well_term[0,0,0], axis = 1)
+            '''for i in range(len(wp)):
                 mob_k = np.sum(fprop.mobilities[:,:,wp[i]] * fprop.component_molar_fractions[:,:,wp[i]], axis = 1).ravel()
 
                 if mob_k[0] == 0:
@@ -189,6 +192,6 @@ class TPFASolver:
                     C[0,:] = self.dVtk[ref:,wp[i]].T
                     self.q[ref:,wp[i]] = linalg.solve(C,well_term[:,0,i])
 
-                else: self.q[ref,wp[i]] = well_term[0,0,i] / self.dVtk[ref,wp[i]]
+                else: self.q[ref,wp[i]] = well_term[0,0,i] / self.dVtk[ref,wp[i]]'''
 
             #(fprop.component_molar_fractions * self.phase_existance * fprop.phase_molar_densities).sum(axis=1)[:,wells['ws_inj']]

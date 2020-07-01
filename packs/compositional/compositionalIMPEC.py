@@ -12,9 +12,10 @@ class CompositionalFVM:
         self.update_gravity_term(fprop)
         self.get_faces_properties_upwind(fprop)
         self.get_phase_densities_internal_faces(fprop)
-        r = 0.8# enter the while loop
+        r = 0.8 # enter the while loop
+        psolve = TPFASolver(fprop)
         while (r!=1.):
-            fprop.P, total_flux_internal_faces, self.q = TPFASolver().get_pressure(M, wells, fprop, delta_t, r)
+            fprop.P, total_flux_internal_faces, self.q = psolve.get_pressure(M, wells, fprop, delta_t)
             Flux().update_flux(fprop, total_flux_internal_faces)
             # For the composition calculation the time step might be different because it treats
             #composition explicitly and this explicit models are conditionally stable - wich can
@@ -23,7 +24,6 @@ class CompositionalFVM:
             r = delta_t_new/delta_t
             delta_t = delta_t_new
         self.update_composition(fprop, delta_t)
-
         return delta_t
 
     def update_gravity_term(self, fprop):
@@ -60,4 +60,6 @@ class CompositionalFVM:
 
     def update_composition(self, fprop, delta_t):
         fprop.component_mole_numbers = fprop.component_mole_numbers + delta_t * (self.q + fprop.component_flux_vols_total)
+        
         fprop.z = fprop.component_mole_numbers[0:ctes.Nc,:] / np.sum(fprop.component_mole_numbers[0:ctes.Nc,:], axis = 0)
+        fprop.q = self.q
