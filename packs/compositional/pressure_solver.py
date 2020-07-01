@@ -16,7 +16,6 @@ class TPFASolver:
         self.update_pressure(T, D, fprop)
         self.update_total_flux_internal_faces(M, fprop)
         self.update_flux_wells(fprop, wells, delta_t)
-
         return self.P, self.total_flux_internal_faces, self.q
 
     def dVt_derivatives(self, fprop):
@@ -128,14 +127,17 @@ class TPFASolver:
         if len(wells['ws_q']) > 0:
             #self.injected_fluid_molar_density = data_loaded['Wells']['P1']['ksi_inj']
             #self.q[:,wells['ws_q']] = (wells['values_q'] * self.injected_fluid_molar_density).T
-            if ctes.load_w: Wf = wells['z'][ctes.n_components-1]
+            if ctes.load_w:
+                Wf = np.zeros(wells['z'].shape)
+                Wf[0:ctes.n_components-1,:] = wells['z'][ctes.n_components-1]
             else: Wf = np.zeros(len(wells['ws_q']))
             volume_q = np.argwhere(wells['value_type'][0] == 'volumetric').ravel()
             molar_q = np.argwhere(wells['value_type'] == 'molar').ravel()
-            self.q[:,wells['ws_q'][volume_q]] = ((wells['values_q'][volume_q] * wells['z']).ravel() * \
-                                                (1 - Wf) * wells['ksi_total']).T
-            self.q[:,wells['ws_q'][molar_q]] = (wells['values_q'][molar_q] * wells['z']).ravel().T
-            well_term[wells['ws_q'][volume_q]] = wells['values_q'][volume_q].ravel().T
+            self.q[:,wells['ws_q'][volume_q]] = ((wells['values_q'].ravel()[volume_q] * wells['z']) * \
+                                                (1 - Wf) * wells['ksi_total'])
+            if len(molar_q)>1:
+                self.q[:,wells['ws_q'][molar_q]] = (wells['values_q'].ravel()[molar_q] * wells['z'])
+            well_term[wells['ws_q'][volume_q]] = wells['values_q'].ravel()[volume_q]
             well_term[wells['ws_q'][molar_q]] = np.sum(self.dVtk[:,wells['ws_q'][molar_q]] *
                                                 self.q[:,wells['ws_q'][molar_q]], axis = 0)
         return well_term
@@ -149,7 +151,7 @@ class TPFASolver:
         if len(wells['ws_p'])>1:
             bhp_ind = np.argwhere(M.volumes.center[wells['ws_p']][:,2] == min(M.volumes.center[wells['ws_p']][:,2])).ravel()
         else: bhp_ind = wells['ws_p']
-        independent_terms[wells['ws_p']] = wells['values_p'] + ctes.g * fprop.phase_densities[0,0,wells['ws_p']]*(ctes.z[wells['ws_p']] - ctes.z[bhp_ind])
+        independent_terms[wells['ws_p']] = wells['values_p'] + ctes.g * fprop.phase_densities[0,0,wells['ws_p']] * (ctes.z[wells['ws_p']] - ctes.z[bhp_ind])
         return independent_terms
 
     def update_pressure(self, T, D, fprop):
@@ -161,7 +163,6 @@ class TPFASolver:
         Pot_hidj_up = Pot_hid[:,ctes.v0[:,1]]
         z = ctes.z[ctes.v0[:,0]]
         z_up = ctes.z[ctes.v0[:,1]]
-
         self.total_flux_internal_faces = - np.sum(fprop.mobilities_internal_faces * ctes.pretransmissibility_internal_faces
                                          * ((Pot_hidj_up - Pot_hidj) - ctes.g * fprop.phase_densities_internal_faces
                                          * (z_up - z)), axis = 1)
@@ -178,7 +179,7 @@ class TPFASolver:
             ref = 0 # componente de refererencia para pegar a mobilidade
             mob_ratio = fprop.mobilities[:,:,wp] / np.sum(fprop.mobilities[:,:,wp], axis = 1)
             self.q[:,wp] = np.sum(fprop.component_molar_fractions[:,:,wp] * mob_ratio *
-                            fprop.phase_molar_densities[:,:,wp] * well_term[0,0,0], axis = 1)
+                            fprop.phase_molar_densities[:,:,wp] * well_term[0,0,:], axis = 1)
             '''for i in range(len(wp)):
                 mob_k = np.sum(fprop.mobilities[:,:,wp[i]] * fprop.component_molar_fractions[:,:,wp[i]], axis = 1).ravel()
 
