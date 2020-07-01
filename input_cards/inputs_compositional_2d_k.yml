@@ -36,7 +36,7 @@ compositional_data:
   capillary_pressure: Chang
   equation_of_state: PengRobinson
 
-  rock_compressibility: 0.
+  rock_compressibility: 5.8e-10
   Pf: 20.65E6
 
   #capillary pressure data - not ok with this

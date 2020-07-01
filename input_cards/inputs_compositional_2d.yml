@@ -5,7 +5,7 @@ name_save_file: 'results_2d_injection_5_case'
 n_test: 0
 compositional: True
 hidrocarbon_components: True
-compressible_fluid: False
+compressible_fluid: True
 water_component: False
 use_vpi: False
 
@@ -121,7 +121,7 @@ Wells:
     prescription: Q
     type: Injector
     type_region: box
-    value: 2.72e-6
+    value: 2.720252624e-6
     z: [1.]
     ksi_total: 4587.38948489
     value_type: volumetric
