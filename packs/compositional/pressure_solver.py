@@ -39,7 +39,7 @@ class TPFASolver:
         else: dVwP = np.zeros(ctes.n_volumes)
 
         self.dVtP = dVtP + dVwP
-
+        #self.dVtP = - 1.5083925365317445e-09 * fprop.Vp
 
     def update_transmissibility(self, M, wells, fprop, delta_t):
         self.t0_internal_faces_prod = fprop.component_molar_fractions_internal_faces * fprop.phase_molar_densities_internal_faces \
@@ -123,7 +123,7 @@ class TPFASolver:
         #    self.phase_existance[0,1,:] = np.sign(fprop.V)**2
         #if ctes.load_w:
         #    self.phase_existance[0,ctes.n_phases-1,:] = 1
-
+        '''Modificar isto para o cálculo ser feito apenas uma vez'''
         if len(wells['ws_q']) > 0:
             #self.injected_fluid_molar_density = data_loaded['Wells']['P1']['ksi_inj']
             #self.q[:,wells['ws_q']] = (wells['values_q'] * self.injected_fluid_molar_density).T
@@ -132,14 +132,16 @@ class TPFASolver:
                 Wf[0:ctes.n_components-1,:] = wells['z'][ctes.n_components-1]
             else: Wf = np.zeros(len(wells['ws_q']))
             volume_q = np.argwhere(wells['value_type'][0] == 'volumetric').ravel()
-            molar_q = np.argwhere(wells['value_type'] == 'molar').ravel()
-            self.q[:,wells['ws_q'][volume_q]] = ((wells['values_q'].ravel()[volume_q] * wells['z']) * \
+            molar_q = np.argwhere(wells['value_type'][0] == 'molar').ravel()
+
+            self.q[:,wells['ws_q'][volume_q]] = ((wells['values_q'].ravel()[volume_q] * wells['z'][:,volume_q]) * \
                                                 (1 - Wf) * wells['ksi_total'])
             if len(molar_q)>1:
-                self.q[:,wells['ws_q'][molar_q]] = (wells['values_q'].ravel()[molar_q] * wells['z'])
+                self.q[:,wells['ws_q'][molar_q]] = (wells['values_q'].ravel()[molar_q] * wells['z'][:,molar_q])
             well_term[wells['ws_q'][volume_q]] = wells['values_q'].ravel()[volume_q]
             well_term[wells['ws_q'][molar_q]] = np.sum(self.dVtk[:,wells['ws_q'][molar_q]] *
                                                 self.q[:,wells['ws_q'][molar_q]], axis = 0)
+
         return well_term
 
     def update_independent_terms(self, M, fprop, wells, delta_t):

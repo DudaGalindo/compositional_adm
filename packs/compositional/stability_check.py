@@ -19,8 +19,8 @@ class StabilityCheck:
         self.EOS = ctes.EOS_class(fprop.T) #só para os casos isotérmicos - non isothermal entrariam em run (eu acho)
         self.ph_L = np.ones(len(fprop.P), dtype = bool)
         self.ph_V = np.zeros(len(fprop.P), dtype = bool)
-        #self.Pv = np.array(data_loaded['compositional_data']['component_data']['Pv'])
-        #self.Pv[fprop.T < ctes.Tc] = self.vapor_pressure_pure_substancies(fprop)
+        self.Pv = np.array(data_loaded['compositional_data']['component_data']['Pv'])
+        self.Pv[fprop.T < ctes.Tc] = self.vapor_pressure_pure_substancies(fprop)
 
 
     def run(self, fprop):
@@ -36,19 +36,24 @@ class StabilityCheck:
 
         ponteiro_aux = ponteiro_flash[~ponteiro_flash]
         ponteiro_aux[(np.round(sp1,13) > 1) + (np.round(sp2,13) > 1)] = True #os que devem pass=r para o calculo de flash
-        if any(ponteiro_aux): import pdb; pdb.set_trace()
         ponteiro_flash[~ponteiro_flash] = ponteiro_aux
+        #if len(fprop.P) > 1: ponteiro_flash[19] = False
         self.molar_properties(fprop, np.copy(ponteiro_flash))
-        #self.bubble_point_pressure(fprop, ~ponteiro_flash)
-        '''self.x[:,fprop.L>1] = fprop.z[:,fprop.L>1]
-        self.y[:,fprop.V<0] = fprop.z[:,fprop.V<0]
-        fprop.L[fprop.L>1] = 1
-        fprop.V[fprop.V<0] = 0
+        '''if len(fprop.P) > 1:
+            ponteiro_flash[19] = True
+            self.x[:,19] = fprop.z[:,19]
+            self.y[:,19] = fprop.z[:,19]
+            fprop.L[19] = 0.
+            fprop.V[19] = 1.
 
+        self.x[:,fprop.L>1] = fprop.z[:,fprop.L>1]
+        self.y[:,fprop.L>1] = fprop.z[:,fprop.L>1]
         self.x[:,fprop.L<0] = fprop.z[:,fprop.L<0]
-        self.y[:,fprop.V>1] = fprop.z[:,fprop.V>1]
-        fprop.L[fprop.L<0] = 0
-        fprop.V[fprop.V>1] = 1'''
+        self.y[:,fprop.L<0] = fprop.z[:,fprop.L<0]
+
+        ponteiro_flash[fprop.L>1] = False
+        ponteiro_flash[fprop.L<0] = False'''
+        self.bubble_point_pressure(fprop, ~ponteiro_flash)
         self.update_EOS_dependent_properties(fprop)
         fprop.component_molar_fractions[0:ctes.Nc, 0, :] = self.x
         fprop.component_molar_fractions[0:ctes.Nc, 1, :] = self.y
@@ -131,7 +136,7 @@ class StabilityCheck:
     """-------------------- Biphasic flash calculations ---------------------"""
 
     def molar_properties(self, fprop, ponteiro):
-        if ctes.Nc <= 2: self.molar_properties_Whitson(fprop, ponteiro)
+        if ctes.Nc <= 5: self.molar_properties_Whitson(fprop, ponteiro)
         else: self.molar_properties_Yinghui(fprop, ponteiro)
 
     def deltaG_molar_vectorized(self, l, P, ph):
@@ -356,7 +361,8 @@ class StabilityCheck:
 
 
     def get_dlnphidP(self, T, xij, P, ph):
-        A, B = ctes.EOS_class(T).coefficients_cubic_EOS_vectorized(xij, P)
+        #self.EOS = ctes.EOS_class(T)
+        A, B = self.EOS.coefficients_cubic_EOS_vectorized(xij, P)
         Z = self.EOS.Z_vectorized(A, B, ph)
         dAdP = self.EOS.dA_dP()
         dBdP = self.EOS.dB_dP()
@@ -369,16 +375,17 @@ class StabilityCheck:
         self.x[:,ponteiro] = fprop.z[:,ponteiro] #self.x[:,ponteiro]
         y = np.copy(self.x)
 
-        # Depende muito de Pbguess (chute inicial de Pb)
+        # Depende muito de Pbguess (chute inicial de Pb) - PROBLEMÃO AQUI
         #self.Pv[fprop.T > ctes.Tc] = self.Pv[fprop.T > ctes.Tc] * 0.62
-        Pb = np.sum(fprop.z * self.Pv[:,np.newaxis], axis = 0) * 0.62
-
-        K = np.exp(5.37 * (1 + ctes.w) * (1 - 1 / (fprop.T / ctes.Tc)), dtype=np.double)[:,np.newaxis] / \
-                (Pb / ctes.Pc[:,np.newaxis])
         i = 0
-        if ctes.Nc>1:
 
+        if ctes.Nc>1:
+            Pb = 9.5e6*np.ones(len(fprop.P))#np.sum(fprop.z * self.Pv[:,np.newaxis], axis = 0) * 0.62
+
+            K = np.exp(5.37 * (1 + ctes.w) * (1 - 1 / (fprop.T / ctes.Tc)), dtype=np.double)[:,np.newaxis] / \
+                    (Pb / ctes.Pc[:,np.newaxis])
             while any(ponteiro):
+
                 y[:,ponteiro] = self.x[:,ponteiro] * K[:,ponteiro]
                 Pb_old = np.copy(Pb[ponteiro])
 
@@ -386,7 +393,6 @@ class StabilityCheck:
                 lnphil = self.lnphi_based_on_deltaG(self.x[:,ponteiro], Pb[ponteiro], self.ph_L[ponteiro])
 
                 fil = np.exp(lnphil) * (self.x[:,ponteiro] * Pb[ponteiro][np.newaxis,:])
-                fiv = np.exp(lnphil) * (y[:,ponteiro] * Pb[ponteiro][np.newaxis,:])
 
                 phiv = np.exp(lnphiv)
                 phil = np.exp(lnphil)
@@ -402,16 +408,17 @@ class StabilityCheck:
                 df = np.sum((phiv * dfildP - fil * dphivdP) / phiv**2, axis=0) - 1.
 
                 i += 1
-                if i > 50  or any(Pb < 0) or any(df == 0):
-                    raise ValueError('Change Pguess - not converging')
+                if i > 100  or any(df == 0):
+                    if any(fprop.P[ponteiro] == fprop.P[19]): ponteiro[19] = False; Pb[19] = 1.1*fprop.P[19]
+                    #raise ValueError('Change Pguess - not converging')
 
                 Pb[ponteiro] = Pb[ponteiro] - f / df
                 K[:,ponteiro] = phil / phiv
                 stop_criteria = abs(Pb[ponteiro] - Pb_old)
                 ponteiro_aux = ponteiro[ponteiro]
-                ponteiro_aux[stop_criteria <= 1] = False
+                ponteiro_aux[stop_criteria <= .5*6894.757] = False
                 ponteiro[ponteiro] = ponteiro_aux
-
+        else: Pb = self.Pv * np.ones(len(fprop.P))
         L = fprop.L[ponteiro_save]
         V = fprop.V[ponteiro_save]
         L[fprop.P[ponteiro_save] > Pb[ponteiro_save]] = 1

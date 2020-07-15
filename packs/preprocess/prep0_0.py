@@ -103,7 +103,7 @@ class Preprocess0:
 
         v = np.ones([3,1])
         dd = np.argwhere(np.round(normals@v, 2)!=1)
-        
+
         if len(dd)>0:
             inclined_faces_normals = normals[dd.ravel()]
             xz_face = np.argwhere(inclined_faces_normals[:,1]==0).ravel()
@@ -211,7 +211,7 @@ class Preprocess0:
         ni = len(internal_faces)
         ks0 = ks[vols_viz_internal_faces[:, 0]]
         ks1 = ks[vols_viz_internal_faces[:, 1]]
-
+        
         ks0 = ks0.reshape([ni, 3, 3]) * u_normal_internal_faces.reshape([ni, 1, 3])
         ks1 = ks1.reshape([ni, 3, 3]) * u_normal_internal_faces.reshape([ni, 1, 3])
         ks0 = ks0.sum(axis=2).sum(axis=1)

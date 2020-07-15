@@ -52,23 +52,25 @@ class run_simulation:
     def run(self, M, wells, fprop, load):
         t0 = time.time()
         t_obj = delta_time(fprop) #get wanted properties in t=n
+        again = True
+
         self.delta_t = CompositionalFVM().runIMPEC(M, wells, fprop, self.delta_t)
         self.t += self.delta_t
 
         if ctes.load_k and ctes.compressible_k: self.p2.run(fprop)
         self.p1.run_inside_loop(M, fprop)
+
         self.update_vpi(fprop, wells)
         self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
         self.update_loop()
         t1 = time.time()
         dt = t1 - t0
-
         # Talvez isso esteja antes de self.all_compositional_results dentro de update_current_compositional_results
         if self.use_vpi:
             if np.round(self.vpi,3) in self.vpi_save:
                 self.update_current_compositional_results(M, wells, fprop, dt) #ver quem vou salvar
         else:
-            if self.time_save == 'all' or self.t in self.time_save:
+            if self.time_save[0] == 0.0 or self.t in self.time_save:
                 self.update_current_compositional_results(M, wells, fprop, dt)
 
     def update_loop(self):

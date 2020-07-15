@@ -56,7 +56,7 @@ for arq in arquivos:
                           1980.22, 1979.12, 1977.66, 1975.97, 1973.94, 1971.55, 1969.17, 1967.25, 1965.04, 1960.79, 1952.94, 1940.9,
                           1928.27, 1920.54, 1911.46, 1900, 1905.88])'''
 
-        datas = np.load('flying/results_compressive_oil_case_278.npy', allow_pickle=True)
+        datas = np.load('flying/results_compressive_oil_caset_213.npy', allow_pickle=True)
         b = 0
         pressure = np.zeros([len(t),100])
         for data in datas[1:]:
@@ -67,12 +67,13 @@ for arq in arquivos:
         x = np.linspace(0,1,100)
         #plt.title('t = 5 days')
         t = t/86400
-        '''for tt in range(len(t)):
-            plt.plot(x_ans, p_ans[tt,:], label = ('{}Days'.format(t[tt])) )'''
+        for tt in range(len(t)):
+            plt.plot(x_ans, p_ans[tt,:], 'k')
+            plt.plot(x, pressure[tt,:], label = ('{}Days'.format(t[tt])) )
 
 
         plt.figure(1)
-        plt.plot(x_ans,p_ans[1,:],'r',x, pressure[1,:], 'g')
+        #plt.plot(x_ans,p_ans[1,:],'r',x, pressure[1,:], 'g')
         plt.grid()
         plt.legend(bbox_to_anchor=(.48, 1.15), loc=9, borderaxespad=0., ncol = 5, handletextpad = 0.1)
         plt.ylabel('Pressure (psi)')

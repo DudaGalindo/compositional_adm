@@ -9,14 +9,14 @@ name = 'results'
 arquivos = os.listdir(flying)
 for  arq in arquivos:
     if  arq.startswith(name):
-        datas = np.load('flying/results_Dietz_30dg_case_1288.npy', allow_pickle=True)
+        datas = np.load('flying/results_Dietz_30dg_case_1207.npy', allow_pickle=True)
 
-        x425_all = np.zeros([12,10])
+        x425_all = np.zeros([11,10])
         b=0
         import pdb; pdb.set_trace()
         for data in datas[1:]:
             Sw = data[5]
-            centroids = data[6]
+            centroids = data[8]
             inds = np.zeros([10,100])
             Sw_org = np.zeros([10,100])
             x425 = np.zeros(10)
@@ -46,12 +46,13 @@ for  arq in arquivos:
                           [38.994, 40.1585, 41.6141, 42.9888, 44.1695, 45.6898, 46.9513, 48.5848, 50.0243, 51.0108],
                           [61.006, 62.8012, 63.9981, 65.0817, 66.7961, 68.0091, 69.772, 71.0335, 72.1172, 73.88],
                           [83.7943, 84.9749, 86.6731, 87.967, 89.455, 90.4739, 91.9942, 93.1748, 94.8892, 95.9567]])
-        
+        import pdb; pdb.set_trace()
         x425_plot = np.zeros([4,10])
-        x425_plot[0,:] = x425_all[1,:]
+        x425_plot[0,:] = x425_all[2,:]
         x425_plot[1,:] = x425_all[4,:]
         x425_plot[2,:] = x425_all[7,:]
         x425_plot[3,:] = x425_all[10,:]
+        #import pdb; pdb.set_trace()
         plt.figure(1)
         plt.plot(x425_plot[0,:],z_plot, 'r',label = ('vpi = 0.1'))
         plt.plot(x425_plot[1,:],z_plot,'g', label = ('vpi = 0.2'))
@@ -65,5 +66,5 @@ for  arq in arquivos:
         plt.legend(bbox_to_anchor=(.48, 1.08), loc=9, borderaxespad=0., ncol = 5)
         plt.ylabel('Distance in Z-Direction (ft)')
         plt.xlabel('Distance in X-Direction (ft)')
-        plt.savefig('results/compositional/profile_Dietz_comparison.png')
+        plt.savefig('results/compositional/profile_Dietz_comparison11.png')
         import pdb; pdb.set_trace()

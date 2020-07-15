@@ -1,4 +1,4 @@
-mesh_name: 20x20x1.msh
+mesh_name: 40x40x5_3k.msh
 name_save_file: 'results_2d_3k_case'
 
 compositional: True
@@ -36,7 +36,7 @@ compositional_data:
   capillary_pressure: Chang
   equation_of_state: PengRobinson
 
-  rock_compressibility: 0
+  rock_compressibility: 5e-10
   Pf: 20.65E6
 
   #capillary pressure data - not ok with this
@@ -45,12 +45,12 @@ compositional_data:
 
   time_data:
     deltaPlim: 100
-    deltaNlim: 0.01
-    deltaSlim: 0.1
-    deltaVlim: 0.0001
-    delta_t_ini: 1000
-    delta_tmax: 77760
-    delta_tmin: 8.64
+    deltaNlim: 0.1
+    deltaSlim: 0.01
+    deltaVlim: 0.0005
+    delta_t_ini: .1
+    delta_tmax: 30240
+    delta_tmin: .1
 
   #rever isso de Cw=0 e Pw
   water_data:
@@ -107,7 +107,7 @@ Permeability:
 Pressure:
   r1:
     type: all
-    value: 20.65E6
+    value: 20684271
 
 Temperature:
   r1:
@@ -116,20 +116,20 @@ Temperature:
 
 Wells:
   P1:
-    p0: [0.0, 231.6385, -60.96]
-    p1: [12.1915, 243.83, 0.0]
+    p0: [0.0, 475.488, -60.96]
+    p1: [12.192, 487.68, 0.0]
     prescription: Q
     type: Injector
     type_region: box
-    value: 65.548256e-4
+    value: 65.548256e-1
     z: [0.95, 0.05, 0.0, 0.0]
     ksi_total: 40.85920706
     value_type: volumetric
 
   P2:
-    p0: [231.6385, 0, -60.96]
-    p1: [243.83, 12.1915, 0.0]
+    p0: [475.488, 0, -60.96]
+    p1: [487.68, 12.192, 0.0]
     prescription: P
     type: Producer
     type_region: box
-    value: 20.65E6
+    value: 20684271

@@ -49,17 +49,17 @@ class WellsCompositional(Wells):
                         val *= -1
                     ws_q.append(vols)
                     values_type = np.repeat(well['value_type'], nv)
-                    vals = np.repeat(value, nv)
-                    zs_ = np.repeat(well['z'], nv, axis = 0)
+                    vals = np.repeat(val, nv)
+                    zs_ = np.tile(well['z'], nv)
 
                     if len(zs)==0: zs = zs_
-                    else: zs = np.concatenate(zs, zs_)
+                    else: zs = np.concatenate(zs.flatten(), zs_)
                     ksis = np.repeat(well['ksi_total'], nv)
 
                     ksi.append(np.repeat(well['ksi_total'], nv))
                     values_q.append(vals)
                     values_q_type.append(values_type)
-
+                    zs = zs.reshape(int(len(zs)/len(well['z'])),len(well['z'])).T
                 elif prescription == 'P':
                     val = value
                     ws_p.append(vols)
@@ -69,6 +69,7 @@ class WellsCompositional(Wells):
                     ws_inj.append(vols)
                 elif tipo == 'Producer':
                     ws_prod.append(vols)
+
 
         ws_q = np.array(ws_q).flatten()
         ws_p = np.array(ws_p).flatten()

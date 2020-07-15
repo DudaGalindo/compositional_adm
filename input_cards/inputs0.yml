@@ -22,7 +22,7 @@ Pressure:
 Saturation:
   r1:
     type: all
-    value: 0.0
+    value: 0.2
 Temperature:
   r1:
     type: all
@@ -80,15 +80,15 @@ compositional_data:
     Sgr: 0
     Sorg: 0
     Sorw: 0
-    Swr: 0
+    Swr: 0.2
   rock_compressibility: 7.252e-08
   time_data:
-    deltaNlim: 0.001
+    deltaNlim: 0.01
     deltaPlim: 68.9476
-    deltaSlim: 0.001
-    deltaVlim: 0.001
+    deltaSlim: 0.1
+    deltaVlim: 0.0005
     delta_t_ini: 1000
-    delta_tmax: 7000
+    delta_tmax: 10000
     delta_tmin: 0.0001
   time_to_save:
   - 274752
@@ -122,9 +122,9 @@ mesh_name: 100x1x1.msh
 monophasic_data:
   gama: 10000.0
   mi: 1.0
-name_save_file: results_compressive_oil_case
+name_save_file: results_compressive_oil_caset
 read_permeability: false
 set_permeability: true
 set_porosity: true
 use_vpi: false
-water_component: false
+water_component: true

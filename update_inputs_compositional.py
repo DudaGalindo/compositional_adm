@@ -51,3 +51,5 @@ class FluidProperties:
         self.rho_W = self.ksi_W * ctes.Mw_w
         #self.phase_molar_densities[0,ctes.n_phases-1,:] = self.ksi_W0
         self.component_molar_fractions[ctes.n_components-1,ctes.n_phases-1,:] = 1
+        self.component_molar_fractions[ctes.n_components-1,0:ctes.n_phases-1,:] = 0
+        self.component_molar_fractions[0:ctes.n_components-1,ctes.n_phases-1,:] = 0

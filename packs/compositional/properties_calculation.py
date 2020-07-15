@@ -122,8 +122,8 @@ class PropertiesCalc:
         phase_viscosities = np.empty([1, ctes.n_phases, ctes.n_volumes])
         if ctes.load_k:
             phase_viscosity = self.phase_viscosity_class(fprop)
-            #self.phase_viscosities[0,0:2,:] = 0.02*np.ones([2,ctes.n_volumes]) #only for BL test
-            #self.phase_viscosities[0,0:2,:] = 0.001*np.ones([2,ctes.n_volumes]) #only for Dietz test
+            #phase_viscosities[0,0:2,:] = 0.02*np.ones([2,ctes.n_volumes]) #only for BL test
+            #phase_viscosities[0,0:2,:] = 0.001*np.ones([2,ctes.n_volumes]) #only for Dietz test
             #phase_viscosities[0,0:2,:] = 0.000249*np.ones([2,ctes.n_volumes]) #only for Dietz test
             phase_viscosities[0,0:2,:] = phase_viscosity(fprop)
         if ctes.load_w:
@@ -149,5 +149,8 @@ class PropertiesCalc:
         Swr = float(direc.data_loaded['compositional_data']['residual_saturations']['Swr'])
         fprop.ksi_W = fprop.ksi_W0 * (1 + ctes.Cw * (fprop.P - ctes.Pw))
         fprop.rho_W = fprop.ksi_W * ctes.Mw_w
-        if ctes.Cw>0:
-            M.data['saturation'] = fprop.component_mole_numbers[ctes.n_components-1,:] * (1 / fprop.ksi_W) / fprop.Vp #or Vt ?
+        Nw = fprop.ksi_W * ctes.Vbulk * ctes.porosity  #numero de mols de água original
+        #import pdb; pdb.set_trace()
+        Sw = fprop.component_mole_numbers[ctes.n_components-1,:]\
+                        * (1 / fprop.ksi_W) / fprop.Vp #or Vt ?
+        M.data['saturation'][fprop.component_mole_numbers[ctes.n_components-1,:]>Nw] = Sw[fprop.component_mole_numbers[ctes.n_components-1,:]>Nw]

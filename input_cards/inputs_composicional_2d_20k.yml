@@ -1,10 +1,10 @@
-mesh_name: 20x20x1.msh
+mesh_name: 40x40x1_k.msh
 name_save_file: 'results_2d_3k_case'
 
 compositional: True
 hidrocarbon_components: True
 compressible_fluid: True
-water_component: True
+water_component: False
 use_vpi: False
 
 
@@ -24,19 +24,19 @@ monophasic_data:
   mi: 1.0
 
 
-# Case 3 of Li M.Sc. Thesis with case studies time 43200000.
+# Case 3 of Li M.Sc. Thesis with case studies
 compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 0.5
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [0.0]
-  maximum_time: 43200000
+  maximum_time: 43200000.
   phase_viscosity: LorenzBrayClark
   relative_permeability: BrooksAndCorey
   capillary_pressure: Chang
   equation_of_state: PengRobinson
 
-  rock_compressibility: 0
+  rock_compressibility: 5.8e-10
   Pf: 20.65E6
 
   #capillary pressure data - not ok with this
@@ -44,8 +44,8 @@ compositional_data:
   Epc: 2
 
   time_data:
-    deltaPlim: 100
-    deltaNlim: 0.01
+    deltaPlim: 0.1
+    deltaNlim: 0.1
     deltaSlim: 0.1
     deltaVlim: 0.0001
     delta_t_ini: 1000
@@ -61,9 +61,9 @@ compositional_data:
     Pw: 13.78951458E6
 
   residual_saturations:
-    Sorw: 0
+    Sorw: 0.
     Sorg: 0
-    Swr: 0.25
+    Swr: 0.
     Sgr: 0
 
   relative_permeability_data:
@@ -76,22 +76,24 @@ compositional_data:
 
 #CO2, methane, propane
   component_data:
-    z: [0.01, 0.19, 0.8]
+    z: [0.0077, 0.2025, 0.1180, 0.1484, 0.2863, 0.1490, 0.0063, 0.00629]
     Tc: [304.21, 190.6, 734.68]
-    Pc: [7.39E6, 4.6E6, 1.74E6]
+    Pc: [7388421.6011999985, 4600154.291372, 4504848.065361, 3350431.321823, 2422493.556221, 1803075.482098, 1725799.045642]
     vc: [9.4e-5, 9.99e-5, 8.17e-4]
-    Mw: [44.01e-3, 16.04e-3, 222e-3]
-    w: [0.225, 0.0225, 0.684]
-    Bin: [[0, 0.12, 0.12], [0.12, 0, 0.], [0.12, 0., 0]]
+    Mw: [44.01e-3, 16.043e-3, 38.399e-3, 72.824e-3, 135.819e-3, 257.750e-3, 479.955e-3]
+    w: [0.225, 0.008, 0.130, 0.244, 0.600, 0.903, 1.229]
+    Bin: [[0, 0.1318, 0.1318, 0.1318, 0.09885, 0.09885, 0.09885], [0.1318, 0, 0., 0., 0., 0., 0., 0.], [0.1318, 0., 0, 0.,
+     0., 0., 0., 0.], [0.1318, 0., 0., 0., 0., 0., 0., 0.], [0.09885, 0., 0., 0., 0., 0., 0., 0.]. [0.09885, 0., 0., 0., 0.,
+     0., 0., 0.], [0.09885, 0., 0., 0., 0., 0., 0., 0.]]
     Pv: [0, 34473785.0, 0]
-    vshift_parameter: [0.0, 0.0, 0.0]
+    vshift_parameter: [0.0, 0.0, 0.0, 0., 0., 0., 0., 0.]
 
 
 #water saturation data
 Saturation:
   r1:
     type: all
-    value: 0.25
+    value: 0.
 
 Porosity:
   r1:
@@ -118,13 +120,12 @@ Wells:
   P1:
     p0: [0.0, 231.6385, -60.96]
     p1: [12.1915, 243.83, 0.0]
-    prescription: Q
+    prescription: P
     type: Injector
     type_region: box
-    value: 65.548256e-4
-    z: [0.95, 0.05, 0.0, 0.0]
-    ksi_total: 40.85920706
-    value_type: volumetric
+    value: 19994795.299999998
+    z: [0.01, 0.65, 0.30, 0.04, 0., 0., 0., 0.]
+
 
   P2:
     p0: [231.6385, 0, -60.96]
@@ -132,4 +133,4 @@ Wells:
     prescription: P
     type: Producer
     type_region: box
-    value: 20.65E6
+    value: 16547416.799999999

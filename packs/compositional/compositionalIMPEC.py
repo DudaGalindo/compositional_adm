@@ -18,7 +18,7 @@ class CompositionalFVM:
             fprop.P, total_flux_internal_faces, self.q = psolve.get_pressure(M, wells, fprop, delta_t)
             Flux().update_flux(fprop, total_flux_internal_faces)
             # For the composition calculation the time step might be different because it treats
-            #composition explicitly and this explicit models are conditionally stable - wich can
+            #composition explicitly and this explicit models are conditionally stable - which can
             #be based on the CFL parameter.
             delta_t_new = delta_time.update_CFL(delta_t, wells, fprop)
             r = delta_t_new/delta_t
@@ -59,7 +59,8 @@ class CompositionalFVM:
                                                 (fprop.Vp[ctes.v0[:,0]] + fprop.Vp[ctes.v0[:,1]])
 
     def update_composition(self, fprop, delta_t):
+        #import pdb; pdb.set_trace()
         fprop.component_mole_numbers = fprop.component_mole_numbers + delta_t * (self.q + fprop.component_flux_vols_total)
-        
         fprop.z = fprop.component_mole_numbers[0:ctes.Nc,:] / np.sum(fprop.component_mole_numbers[0:ctes.Nc,:], axis = 0)
         fprop.q = self.q
+        

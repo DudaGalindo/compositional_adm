@@ -42,7 +42,7 @@ while run_criteria < stop_criteria:# and loop < loop_max:
     if data_loaded['use_vpi']: run_criteria = sim.vpi
     else:
         run_criteria = sim.t
-        if sim.time_save=='all':
+        if sim.time_save[0] == 0.0:
             t_next = sim.t + sim.delta_t
         else:
             t_next = sim.time_save[sim.time_save > sim.t]
@@ -52,6 +52,7 @@ while run_criteria < stop_criteria:# and loop < loop_max:
         #if sim.loop>60: import pdb; pdb.set_trace()
         #if (sim.t + sim.delta_t) > stop_criteria:
         #    sim.delta_t = stop_criteria - sim.t
+        if sim.delta_t < 3: import pdb; pdb.set_trace()
     loop = sim.loop
     print(sim.t)
 

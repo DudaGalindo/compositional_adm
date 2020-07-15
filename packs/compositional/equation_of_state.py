@@ -47,7 +47,6 @@ class PengRobinson:
         Z = np.min(Z, axis = 1) * ph + np.max(Z, axis = 1) * (1 - ph)
         Z = np.real(Z)
         return Z
-        #Z = np.min(Z, axis = 1) * ph + np.max(Z, axis=1) * ph
 
     def lnphi(self, l, P, ph):
         A, B = self.coefficients_cubic_EOS_vectorized(l, P)
@@ -64,12 +63,6 @@ class PengRobinson:
 
 
         return lnphi
-
-    """ Bellow is showed two functions of the PR EOS equation, that were constructed in a vectorized manner.
-     I modified the code so this two functions are used in the vectorized and non vectorized part. For now they
-     are working in both of them. But, just because I didn't tested everything possible, I don't completelly
-     trust them. Thats why they are kind of separeted from the original ones(that I do trust completelly but
-     you can't calculate in a vectorized manner with them."""
 
 
     """ Derivatives - Still need to organize this"""
@@ -99,6 +92,7 @@ class PengRobinson:
                 dnivdP, dnildNk, dnivdNk)
         dVtdP, dVtdNk = self.dVt_dP_dNk(dnldP, dnvdP, dnldNk, dnvdNk, dZldP,
                         dZvdP, dZldNk, dZvdNk, P, T, Zl, Zv, Nl, Nv)
+        
         return dVtdNk, dVtdP
 
     def get_phase_derivatives(self, P, T, xij, Nj, ph):
@@ -249,14 +243,14 @@ class PengRobinson:
         return dnldP, dnvdP, dnldNk, dnvdNk, dnildP, dnivdP, dnildNk, dnivdNk
 
     def dZ_dP_dNk(self, dZldP, dZvdP, dZldnij, dZvdnij, dnildP, dnivdP, dnildNk, dnivdNk):
-        dZldP = dZldP + np.sum( dZldnij.sum(axis=0) * dnildP, axis = 0)
+        dZldP = dZldP + np.sum(dZldnij.sum(axis=0) * dnildP, axis = 0)
         dZvdP = dZvdP + np.sum(dZvdnij.sum(axis=0) * dnivdP, axis = 0)
-        dZldNk = np.sum(dZldnij.sum(axis=0)[:,np.newaxis,:] * dnildNk, axis = 0)
-        dZvdNk = np.sum(dZvdnij.sum(axis=0)[:,np.newaxis,:] * dnivdNk, axis = 0)
+        dZldNk = np.sum(dZldnij[0][:,np.newaxis,:] * dnildNk, axis = 0)
+        dZvdNk = np.sum(dZvdnij[0][:,np.newaxis,:] * dnivdNk, axis = 0)
         return dZldP, dZvdP, dZldNk, dZvdNk
 
     def dVt_dP_dNk(self, dnldP, dnvdP, dnldNk, dnvdNk, dZldP, dZvdP, dZldNk, dZvdNk, P, T, Zl, Zv, Nl, Nv):
         coef = ctes.R * T / P
-        dVtdP = coef * (Nl * (dZldP - Zl / P) + Nv * (dZvdP - Zv / P) + Zl * dnldP + Zv * dnvdP)
+        dVtdP = coef * (Nl * dZldP + Nv * dZvdP + Zl * dnldP + Zv * dnvdP - (Zl * Nl / P + Zv * Nv / P))
         dVtdNk = coef * (Nl * dZldNk + Nv * dZvdNk + Zl * dnldNk + Zv * dnvdNk)
         return dVtdP, dVtdNk
