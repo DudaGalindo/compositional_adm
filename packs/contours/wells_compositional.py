@@ -50,16 +50,20 @@ class WellsCompositional(Wells):
                     ws_q.append(vols)
                     values_type = np.repeat(well['value_type'], nv)
                     vals = np.repeat(val, nv)
-                    zs_ = np.tile(well['z'], nv)
-
-                    if len(zs)==0: zs = zs_
-                    else: zs = np.concatenate(zs.flatten(), zs_)
-                    ksis = np.repeat(well['ksi_total'], nv)
-
-                    ksi.append(np.repeat(well['ksi_total'], nv))
                     values_q.append(vals)
                     values_q_type.append(values_type)
-                    zs = zs.reshape(int(len(zs)/len(well['z'])),len(well['z'])).T
+
+                    if tipo == 'Injector':
+                        zs_ = np.tile(well['z'], nv)
+
+                        if len(zs)==0: zs = zs_
+                        else: zs = np.concatenate(zs.flatten(), zs_)
+                        ksis = np.repeat(well['ksi_total'], nv)
+
+                        ksi.append(np.repeat(well['ksi_total'], nv))
+                        zs = zs.reshape(int(len(zs)/len(well['z'])),len(well['z'])).T
+
+
                 elif prescription == 'P':
                     val = value
                     ws_p.append(vols)
@@ -84,7 +88,7 @@ class WellsCompositional(Wells):
         self['ws_prod'] = ws_prod.astype(int)
         self['values_p'] = values_p
         self['values_q'] = values_q
-        self['all_wells'] = np.union1d(ws_inj, ws_prod)
+        self['all_wells'] = np.union1d(ws_inj, ws_prod).astype(int)
         self['values_p_ini'] = values_p.copy()
         self['value_type'] = values_q_type
         self['z'] = zs
