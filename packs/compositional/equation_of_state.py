@@ -41,9 +41,13 @@ class PengRobinson:
         Z = CubicRoots().run(coef)
         root = np.isreal(Z)
         n_reais = np.sum(root*1, axis = 1)
-        Z[~root[n_reais>1]] = Z[root[n_reais > 1]][np.any(root[n_reais>1]==True, axis = 1)].ravel()
+        aux_reais = np.ones(n_reais.shape, dtype=bool)
+        aux_reais[n_reais==3] = False
+        aux_reais[n_reais<=1] = False
+
+        Z[~root[aux_reais]] = Z[root[aux_reais]][np.any(root[aux_reais]==True, axis = 1)].ravel()
+
         Z[~root[n_reais==1]] = np.repeat(Z[root[n_reais == 1]], 2)
-        #Z = Z[Z > 0]
         Z = np.min(Z, axis = 1) * ph + np.max(Z, axis = 1) * (1 - ph)
         Z = np.real(Z)
         return Z
@@ -61,7 +65,6 @@ class PengRobinson:
                 self.b[:,np.newaxis] / self.bm[np.newaxis,:]) * np.log((Z[np.newaxis,:] + (1 +
                 2 ** (1/2)) * B[np.newaxis,:]) / (Z[np.newaxis,:] + (1 - 2 ** (1/2)) * B[np.newaxis,:]))
 
-
         return lnphi
 
 
@@ -75,12 +78,15 @@ class PengRobinson:
         Nv = fprop.phase_mole_numbers[0,1,:]
         P = fprop.P
         T = fprop.T
-        '''x[:,Nv<0] = fprop.z[:,Nv<0]
-        y[:,Nl<0] = fprop.z[:,Nl<0]
-        Nl[Nv<0] = Nl[Nv<0] + Nv[Nv<0]
-        Nv[Nv<0] = 0
-        Nv[Nl<0] = Nl[Nl<0] + Nv[Nl<0]
-        Nl[Nl<0] = 0'''
+
+        # Testando isso ainda, mas basicamente é fazendo Vfases=Vtotal (+-forçante)
+        '''St = fprop.So + fprop.Sg
+        So = fprop.So / St
+        Sg = fprop.Sg / St
+        Nl = Nl/fprop.So * So
+        Nv[Sg>0] = Nv[Sg>0]/fprop.Sg[Sg>0] * Sg[Sg>0]
+        Nv[Sg==0] = 0'''
+
         dlnfildP, dlnfildnij, dZldP_parcial, dZldnij_parcial, Zl = \
                 self.get_phase_derivatives(P, T, x, Nl, np.ones(ctes.n_volumes))
         dlnfivdP, dlnfivdnij, dZvdP_parcial, dZvdnij_parcial, Zv = \
@@ -92,7 +98,6 @@ class PengRobinson:
                 dnivdP, dnildNk, dnivdNk)
         dVtdP, dVtdNk = self.dVt_dP_dNk(dnldP, dnvdP, dnldNk, dnvdNk, dZldP,
                         dZvdP, dZldNk, dZvdNk, P, T, Zl, Zv, Nl, Nv)
-        
         return dVtdNk, dVtdP
 
     def get_phase_derivatives(self, P, T, xij, Nj, ph):
