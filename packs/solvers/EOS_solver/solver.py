@@ -22,21 +22,20 @@ class CubicRoots:
 
     def get_omegas(self):
         omega = (-1 + 1j*np.sqrt(3))/2
-        omegas  = np.array([[1,1],[omega,omega**2],[omega**2,omega**3]])
+        omegas  = np.array([[1,1],[omega,omega**2],[omega**2,omega]])
         return omegas
 
     def get_model_roots(self, omegas, Q, delta):
-        xs_args = np.empty([2,len(Q)])
-        real_delta = np.isreal(delta)
-        neg_delta = np.argwhere(delta<0)
-        delta[delta < 0] = -delta[delta < 0]
+        xs_args = np.empty([2,len(Q)], dtype=np.complex)
 
         aux = np.ones(len(Q), dtype=np.complex) #creating for errors that was having in sqrt numpy function
         aux[delta < 0] = 1j
-        xs_args[0,:] = - Q/2 + (delta)**(1/2)*aux
-        xs_args[1,:] = - Q/2 - (delta)**(1/2)*aux
+        delta[delta < 0] = -delta[delta < 0]
+        
+        xs_args[0,:] = - Q/2 + (delta)**(1/2) * aux
+        xs_args[1,:] = - Q/2 - (delta)**(1/2) * aux
         real_args = np.isreal(xs_args)
-        xs_args[real_args] = np.cbrt(xs_args[real_args])
+        xs_args[real_args] = np.cbrt(np.real(xs_args[real_args])) + 0j
         xs_args[~real_args] = (xs_args[~real_args])**(1/3)
         X = omegas@xs_args
         return X
