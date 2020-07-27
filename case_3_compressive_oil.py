@@ -79,7 +79,7 @@ for arq in arquivos:
         plt.ylabel('Pressure (psi)')
         plt.xlabel('Dimensionless distance')
         plt.grid()
-        plt.savefig('results/compositional/pressure_comp_oil11' + '.png')
+        plt.savefig('results/compositional/pressure_comp_oil22' + '.png')
         import pdb; pdb.set_trace()
 
 

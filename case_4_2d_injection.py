@@ -215,17 +215,17 @@ for  arq in arquivos:
             e3center_L2 = (sum((P[0:133:3]-pressure3_)**2)*(1/45)**2)**(1/2)'''
 
 
-        datas = np.load('flying/results_2d_injection_25_caset_452.npy', allow_pickle=True)
+        datas = np.load('flying/results_2d_injection_25_case_452.npy', allow_pickle=True)
 
         for data in datas[1:]:
             pressure4 = data[4] / 6894.75729
             """ Just for the 2D case """
             from packs.utils.utils_old import get_box
-            centroids = data[8]
-            #p0 = [0,243.84,-0.3048]
-            #p1 = [609.6,268.224,0.0]
-            p0 = [0., 292.608, -0.3048]
-            p1 = [609.6, 316.992, 0.0]
+            centroids = data[10]
+            p0 = [0,243.84,-0.3048]
+            p1 = [609.6,268.224,0.0]
+            #p0 = [0., 292.608, -0.3048]
+            #p1 = [609.6, 316.992, 0.0]
             ind_ans = get_box(centroids,np.array([p0,p1]))
             cent_ind = centroids[ind_ans]
             cent_mix = cent_ind[:,0]
@@ -270,7 +270,7 @@ for  arq in arquivos:
             p5 = interpolate.splev(x,tck,der=0)
             e5 = (sum((P-p5)**2)/(25*25))**(1/2)'''
 
-        import pdb; pdb.set_trace()
+
         #    p_resp = np.linspace(0.623843,0,100)
         plt.figure(1)
         plt.title('t = 365 days')
@@ -293,7 +293,7 @@ for  arq in arquivos:
 
         plt.figure(3)
         plt.title('t = 365 days')
-        plt.plot(x3, pressure3, x, P)
+        plt.plot(x3, pressure3_, x, P)
         plt.ylabel('Pressure (psi)')
         plt.grid()
         plt.xlabel('Distance in X - Direction (ft)')
