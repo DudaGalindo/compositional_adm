@@ -21,10 +21,8 @@ class WellsCompositional(Wells):
         ws_inj = [] ## pocos injetores
         ws_prod = [] ## pocos produtores
         values_p = [] ## valor da pressao prescrita
-        values_q = [] ## valor da vazao prescrita
-        values_q_type = []
-        ksi = []
-        zs = np.array([])
+        values_q = np.array([]) ## valor da vazao prescrita
+        values_q_vol =[]
         for p in data_wells:
 
             well = data_wells[p]
@@ -44,25 +42,27 @@ class WellsCompositional(Wells):
 
                 if prescription == 'Q':
 
-                    val = value/nv
+                    val = value/nv * np.array(well['z'])
                     if tipo == 'Producer':
                         val *= -1
+
                     ws_q.append(vols)
-                    values_type = np.repeat(well['value_type'], nv)
-                    vals = np.repeat(val, nv)
-                    values_q.append(vals)
-                    values_q_type.append(values_type)
+                    value_type = well['value_type']
+                    values = val
 
-                    if tipo == 'Injector':
-                        zs_ = np.tile(well['z'], nv)
-
-                        if len(zs)==0: zs = zs_
-                        else: zs = np.concatenate(zs.flatten(), zs_)
-                        ksis = np.repeat(well['ksi_total'], nv)
-
-                        ksi.append(np.repeat(well['ksi_total'], nv))
-                        zs = zs.reshape(int(len(zs)/len(well['z'])),len(well['z'])).T
-
+                    if value_type == 'volumetric':
+                        values = (1 - well['z'][-1]) * well['ksi_total'] * val
+                        values[-1] = val[-1] * well['ksi_total']
+                    
+                    vals = np.repeat(values, nv)
+                    if len(values_q)>0:
+                        vals = (vals).reshape((len(well['z']),nv))
+                        values_q = np.concatenate((values_q,vals), axis=1)
+                        values_q_v = (values_q / well['ksi_total']).sum(axis=0)
+                        values_q_vol = np.concatenate(values_q_vol, values_q_v, axis=1)
+                    else:
+                        values_q = np.append(values_q, vals).reshape((len(well['z']),nv))
+                        values_q_vol = (values_q / well['ksi_total']).sum(axis=0)
 
                 elif prescription == 'P':
                     val = value
@@ -90,6 +90,4 @@ class WellsCompositional(Wells):
         self['values_q'] = values_q
         self['all_wells'] = np.union1d(ws_inj, ws_prod).astype(int)
         self['values_p_ini'] = values_p.copy()
-        self['value_type'] = values_q_type
-        self['z'] = zs
-        self['ksi_total'] = ksi
+        self['values_q_vol'] = values_q_vol
