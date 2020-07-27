@@ -15,11 +15,11 @@ class TPFASolver:
         D = self.update_independent_terms(M, fprop, wells, delta_t)
         self.update_pressure(T, D, fprop)
         self.update_total_flux_internal_faces(M, fprop)
-        self.update_flux_wells(fprop, wells, delta_t)
+        self.update_flux_wells(fprop, wells, D, delta_t)
         return self.P, self.total_flux_internal_faces, self.q
 
     def dVt_derivatives(self, fprop):
-        self.dVtk = np.zeros([ctes.n_components, ctes.n_volumes])
+        self.dVtk = np.empty([ctes.n_components, ctes.n_volumes])
 
         if ctes.load_k:
             self.EOS = ctes.EOS_class(fprop.T)
@@ -42,8 +42,9 @@ class TPFASolver:
         #self.dVtP = - 1.5083925365317445e-09 * fprop.Vp
 
     def update_transmissibility(self, M, wells, fprop, delta_t):
-        self.t0_internal_faces_prod = fprop.component_molar_fractions_internal_faces * fprop.phase_molar_densities_internal_faces \
-                                * fprop.mobilities_internal_faces
+        self.t0_internal_faces_prod = fprop.component_molar_fractions_internal_faces * \
+                                      fprop.phase_molar_densities_internal_faces * \
+                                      fprop.mobilities_internal_faces
 
         ''' Transmissibility '''
         t0 = (self.t0_internal_faces_prod).sum(axis = 1)
@@ -59,14 +60,11 @@ class TPFASolver:
             Ta = (sp.csc_matrix((data, (lines, cols)), shape = (ctes.n_volumes, ctes.n_volumes))).toarray()
             T += Ta * self.dVtk[i,:]
 
-        #T = (T * self.dVtk.T[:,np.newaxis, :]).sum(axis = 2)
-
         T = T * delta_t
         ''' Transmissibility diagonal term '''
         diag = np.diag((ctes.Vbulk * ctes.porosity * ctes.Cf - self.dVtP))
         T += diag
         self.T_noCC = np.copy(T)
-
         ''' Includding contour conditions '''
         T[wells['ws_p'],:] = 0
         T[wells['ws_p'], wells['ws_p']] = 1
@@ -108,39 +106,20 @@ class TPFASolver:
 
     def volume_discrepancy_independent_term(self, fprop):
         volume_discrepancy_term = fprop.Vp - fprop.Vt
-        if np.max(abs(fprop.Vp - fprop.Vt)/fprop.Vp) > 5e-4:
+        if np.max(abs(fprop.Vp - fprop.Vt)/fprop.Vp) > 1e-3:
             import pdb; pdb.set_trace()
-            raise ValueError('diminuir delta_t')
+            #raise ValueError('diminuir delta_t')
         return volume_discrepancy_term
 
     def well_term(self, fprop, wells):
         self.q = np.zeros([ctes.n_components, ctes.n_volumes]) #for now
         well_term = np.zeros(ctes.n_volumes)
-        #self.phase_existance = np.zeros([1, ctes.n_phases, ctes.n_volumes])
 
-        #if ctes.load_k:
-        #    self.phase_existance[0,0,:] = np.sign(fprop.L)
-        #    self.phase_existance[0,1,:] = np.sign(fprop.V)**2
-        #if ctes.load_w:
-        #    self.phase_existance[0,ctes.n_phases-1,:] = 1
         '''Modificar isto para o cálculo ser feito apenas uma vez'''
         if len(wells['ws_q']) > 0:
-            #self.injected_fluid_molar_density = data_loaded['Wells']['P1']['ksi_inj']
-            #self.q[:,wells['ws_q']] = (wells['values_q'] * self.injected_fluid_molar_density).T
-            if ctes.load_w:
-                Wf = np.zeros(wells['z'].shape)
-                Wf[0:ctes.n_components-1,:] = wells['z'][ctes.n_components-1]
-            else: Wf = np.zeros(len(wells['ws_q']))
-            volume_q = np.argwhere(wells['value_type'][0] == 'volumetric').ravel()
-            molar_q = np.argwhere(wells['value_type'][0] == 'molar').ravel()
-
-            self.q[:,wells['ws_q'][volume_q]] = ((wells['values_q'].ravel()[volume_q] * wells['z'][:,volume_q]) * \
-                                                (1 - Wf) * wells['ksi_total'])
-            if len(molar_q)>1:
-                self.q[:,wells['ws_q'][molar_q]] = (wells['values_q'].ravel()[molar_q] * wells['z'][:,molar_q])
-            well_term[wells['ws_q'][volume_q]] = wells['values_q'].ravel()[volume_q]
-            well_term[wells['ws_q'][molar_q]] = np.sum(self.dVtk[:,wells['ws_q'][molar_q]] *
-                                                self.q[:,wells['ws_q'][molar_q]], axis = 0)
+            self.q[:,wells['ws_q']] = wells['values_q']
+            #well_term[wells['ws_q']] = wells['values_q_vol']
+            well_term[wells['ws_q']] = np.sum(self.dVtk[:,wells['ws_q']] * self.q[:,wells['ws_q']], axis = 0)
 
         return well_term
 
@@ -169,32 +148,13 @@ class TPFASolver:
                                          * ((Pot_hidj_up - Pot_hidj) - ctes.g * fprop.phase_densities_internal_faces
                                          * (z_up - z)), axis = 1)
 
-    def update_flux_wells(self, fprop, wells, delta_t):
-        """Tentar melhorar isso daqui"""
-
+    def update_flux_wells(self, fprop, wells, independent_terms, delta_t):
         wp = wells['ws_p']
-        well_term = np.zeros([ctes.n_components,1,len(wp)])
         if len(wp)>=1:
-            well_term[0,0,0:len(wp)] = (self.T_noCC[wp,:] @ self.P - self.pressure_term[wp] + self.volume_term[wp] ) / delta_t \
+            #vector = ctes.Vbulk * ctes.porosity * ctes.Cf - self.dVtP
+            #self.pressure_term[wp] = vector[wp] * self.P[wp]
+            well_term = (self.T_noCC[wp,:] @ self.P - self.pressure_term[wp] + self.volume_term[wp] ) / delta_t \
                             + self.capillary_term[wp] + self.gravity_term[wp]
-            n_components = ctes.n_components
-            ref = 0 # componente de refererencia para pegar a mobilidade
             mob_ratio = fprop.mobilities[:,:,wp] / np.sum(fprop.mobilities[:,:,wp], axis = 1)
             self.q[:,wp] = np.sum(fprop.component_molar_fractions[:,:,wp] * mob_ratio *
-                            fprop.phase_molar_densities[:,:,wp] * well_term[0,0,:], axis = 1)
-            '''for i in range(len(wp)):
-                mob_k = np.sum(fprop.mobilities[:,:,wp[i]] * fprop.component_molar_fractions[:,:,wp[i]], axis = 1).ravel()
-
-                if mob_k[0] == 0:
-                    ref = 1
-                    n_components -= 1
-
-                if n_components > 1:
-                    C = np.diag(np.ones(n_components))
-                    C[1:,0] = - mob_k[(ref+1):]/ mob_k[ref]
-                    C[0,:] = self.dVtk[ref:,wp[i]].T
-                    self.q[ref:,wp[i]] = linalg.solve(C,well_term[:,0,i])
-
-                else: self.q[ref,wp[i]] = well_term[0,0,i] / self.dVtk[ref,wp[i]]'''
-
-            #(fprop.component_molar_fractions * self.phase_existance * fprop.phase_molar_densities).sum(axis=1)[:,wells['ws_inj']]
+                            fprop.phase_molar_densities[:,:,wp] * well_term, axis = 1)
