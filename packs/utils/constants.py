@@ -50,6 +50,7 @@ def component_properties():
     global Mw_w
     global Cw
     global Pw
+    global Pb_guess
 
     load_k = data_loaded['hidrocarbon_components']
     load_w = data_loaded['water_component']
@@ -65,6 +66,7 @@ def component_properties():
         Mw = np.array(data_loaded['compositional_data']['component_data']['Mw']).astype(float)
         s = np.array(data_loaded['compositional_data']['component_data']['vshift_parameter']).astype(float)
         Nc = len(Mw)
+        Pb_guess = np.array(data_loaded['compositional_data']['component_data']['Pb_guess']).astype(float)
 
     else: Nc = 0; z = []
     if load_w:
