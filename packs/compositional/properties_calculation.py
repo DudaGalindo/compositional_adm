@@ -69,7 +69,6 @@ class PropertiesCalc:
 
         component_phase_mole_numbers = fprop.component_molar_fractions * fprop.phase_mole_numbers
         fprop.component_mole_numbers = np.sum(component_phase_mole_numbers, axis = 1)
-        import pdb; pdb.set_trace()
 
     def update_porous_volume(self, fprop):
         fprop.Vp = ctes.porosity * ctes.Vbulk * (1 + ctes.Cf*(fprop.P - ctes.Pf))
