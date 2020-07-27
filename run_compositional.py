@@ -20,8 +20,8 @@ class run_simulation:
         self.loop = 0
         self.vpi = 0.0
         self.t = 0.0
-        self.oil_production_rate = 0.
-        self.gas_production_rate = 0.
+        self.oil_production = 0.
+        self.gas_production = 0.
         self.use_vpi = data_loaded['use_vpi']
         self.vpi_save = data_loaded['compositional_data']['vpis_para_gravar_vtk']
         self.time_save = np.array(data_loaded['compositional_data']['time_to_save'])
@@ -38,13 +38,16 @@ class run_simulation:
         return M, data_impress, wells, fprop, load
 
     def get_initial_properties(self, M, wells, load, data_loaded):
-        fprop = FluidProperties()
+        fprop = FluidProperties(wells)
         if ctes.load_k:
-            StabilityCheck(fprop).run(fprop)
-            fprop.inputs_fluid_properties()
-            self.p2 = StabilityCheck(fprop)
+            fprop.L, fprop.V, fprop.component_molar_fractions[0:ctes.Nc, 0, :], \
+            fprop.component_molar_fractions[0:ctes.Nc, 1, :], fprop.phase_molar_densities[:,0,:], \
+            fprop.phase_molar_densities[:,1,:], fprop.phase_densities[:,0,:], fprop.phase_densities[:,1,:]  =  \
+            StabilityCheck(fprop, fprop.P).run(fprop, fprop.P, fprop.L, fprop.V, fprop.z)
+            #fprop.inputs_fluid_properties()
+            self.p2 = StabilityCheck(fprop, fprop.P)
         else: fprop.x = []; fprop.y = []
-        if ctes.load_w: fprop.inputs_water_properties()
+        if ctes.load_w: fprop.inputs_water_properties(M)
 
         self.p1.run_outside_loop(M, fprop)
         return fprop
@@ -52,14 +55,18 @@ class run_simulation:
     def run(self, M, wells, fprop, load):
         t0 = time.time()
         t_obj = delta_time(fprop) #get wanted properties in t=n
-        again = True
 
         self.delta_t = CompositionalFVM().runIMPEC(M, wells, fprop, self.delta_t)
+
         self.t += self.delta_t
 
-        if ctes.load_k and ctes.compressible_k: self.p2.run(fprop)
+        if ctes.load_k and ctes.compressible_k:
+            fprop.L, fprop.V, fprop.component_molar_fractions[0:ctes.Nc, 0, :], \
+            fprop.component_molar_fractions[0:ctes.Nc, 1, :], fprop.phase_molar_densities[:,0,:], \
+            fprop.phase_molar_densities[:,1,:], fprop.phase_densities[:,0,:], fprop.phase_densities[:,1,:]  =  \
+            self.p2.run(fprop, fprop.P, fprop.L, fprop.V, fprop.z)
         self.p1.run_inside_loop(M, fprop)
-
+        #if self.t > 32405: import pdb; pdb.set_trace()
         self.update_vpi(fprop, wells)
         self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
         self.update_loop()
@@ -78,28 +85,29 @@ class run_simulation:
 
     def update_vpi(self, fprop, wells):
         if len(wells['ws_inj'])>0:
-            flux_vols_total = wells['values_q']
+            flux_vols_total = wells['values_q_vol']
             flux_total_inj = np.absolute(flux_vols_total)
         else: flux_total_inj = np.zeros(2)
 
         self.vpi = self.vpi + (flux_total_inj.sum())/sum(fprop.Vp)*self.delta_t
 
-
     def get_empty_current_compositional_results(self):
 
-        return [np.array(['loop', 'vpi [s]', 'simulation_time [s]', 't [s]', 'pressure [Pa]', 'Sw', 'Oil_p', 'Gas_p',
-                        'centroids'])]
+        return [np.array(['loop', 'vpi [s]', 'simulation_time [s]', 't [s]', 'pressure [Pa]', 'Sw', 'So', 'Sg',
+                        'Oil_p', 'Gas_p', 'centroids'])]
 
     def update_current_compositional_results(self, M, wells, fprop, simulation_time: float = 0.0):
 
         #total_flux_internal_faces = fprop.total_flux_internal_faces.ravel() #* M.faces.normal[M.faces.internal]
         #total_flux_internal_faces_vector = fprop.total_flux_internal_faces.T * np.abs(M.faces.normal[M.faces.internal])
-        self.oil_production_rate +=  sum(fprop.q[:,wells['ws_prod']] * self.delta_t) * fprop.L[wells['ws_prod']] / \
-                                fprop.phase_molar_densities[:,0,wells['ws_prod']]
-        self.gas_production_rate +=  sum(fprop.q[:,wells['ws_prod']] * self.delta_t) * fprop.V[wells['ws_prod']]  / \
-                                fprop.phase_molar_densities[:,1,wells['ws_prod']]
+        self.oil_production -=  sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.L[wells['ws_prod']] / \
+                                fprop.phase_molar_densities[:,0,wells['ws_prod']])
+        self.gas_production -=  sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.V[wells['ws_prod']]  / \
+                                fprop.phase_molar_densities[:,1,wells['ws_prod']])
+
         self.current_compositional_results = np.array([self.loop, self.vpi, simulation_time,
-        self.t, fprop.P, fprop.Sw, self.oil_production_rate, self.gas_production_rate, M.data['centroid_volumes']])
+                    self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
+                    self.gas_production, M.data['centroid_volumes']])
         self.all_compositional_results.append(self.current_compositional_results)
 
     def export_current_compositional_results(self):
