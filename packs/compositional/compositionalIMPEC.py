@@ -1,5 +1,5 @@
 from .pressure_solver import TPFASolver
-from .flux_calculation import Flux
+from .flux_calculation import FOUM, MUSCL
 from ..solvers.solvers_scipy.solver_sp import SolverSp
 from scipy import linalg
 from .update_time import delta_time
@@ -16,7 +16,8 @@ class CompositionalFVM:
         psolve = TPFASolver(fprop)
         while (r!=1.):
             fprop.P, total_flux_internal_faces, self.q = psolve.get_pressure(M, wells, fprop, delta_t)
-            Flux().update_flux(fprop, total_flux_internal_faces)
+            FOUM().update_flux(fprop, total_flux_internal_faces)
+            #MUSCL(M, fprop, wells)
             # For the composition calculation the time step might be different because it treats
             #composition explicitly and this explicit models are conditionally stable - which can
             #be based on the CFL parameter.
@@ -59,8 +60,10 @@ class CompositionalFVM:
                                                 (fprop.Vp[ctes.v0[:,0]] + fprop.Vp[ctes.v0[:,1]])
 
     def update_composition(self, fprop, delta_t):
-        #import pdb; pdb.set_trace()
+        Nk_n = fprop.component_mole_numbers
         fprop.component_mole_numbers = fprop.component_mole_numbers + delta_t * (self.q + fprop.component_flux_vols_total)
         fprop.z = fprop.component_mole_numbers[0:ctes.Nc,:] / np.sum(fprop.component_mole_numbers[0:ctes.Nc,:], axis = 0)
         fprop.q = self.q
         
+        #material balance error calculation:
+        #Mb = (np.sum(fprop.component_mole_numbers - Nk_n,axis=1) - np.sum(self.q,axis=1))/np.sum(self.q,axis=1)
