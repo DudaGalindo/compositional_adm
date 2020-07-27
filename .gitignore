@@ -27,7 +27,7 @@ impress(copia)/
 *.pyc
 *.imp
 .idea/
-
+*flying/
 
 
 
