@@ -1,6 +1,6 @@
 #2-D vertical biphasic case - inclined reservoir 1 oil component
 mesh_name: 100x1x10_2.msh
-name_save_file: 'results_Dietz_30dg_case'
+name_save_file: 'results_Dietz_30dg_caset'
 
 compositional: True
 hidrocarbon_components: True
@@ -83,7 +83,8 @@ compositional_data:
     Mw: [142.28e-3]
     w: [0.4890]
     Bin: [0]
-    vshift_parameter: [-0]
+    vshift_parameter: [-190]
+    Pv: [0.]
 
 #water saturation data
 Saturation:

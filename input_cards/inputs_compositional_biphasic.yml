@@ -48,7 +48,7 @@ compositional_data:
     deltaNlim: 0.3
     deltaSlim: 0.3
     deltaVlim: 1
-    delta_t_ini: 1.8
+    delta_t_ini: 3.
     delta_tmax: 1000
     delta_tmin: 0.0001
     #2.765
@@ -83,6 +83,8 @@ compositional_data:
     Mw: [142.276e-3]
     w: [0.4890]
     Bin: [0]
+    Pv: [0.]
+    Pb_guess: [0.]
     vshift_parameter: [0.085]
 
 #water saturation data

@@ -6,7 +6,7 @@ n_test: 0
 compositional: True
 hidrocarbon_components: True
 compressible_fluid: True
-water_component: False
+water_component: True
 use_vpi: False
 
 load_data: False
@@ -38,7 +38,7 @@ compositional_data:
   equation_of_state: PengRobinson
 
   rock_compressibility: 7.252e-8
-  Pf: 13.78951458E6
+  Pf: 13.79e6
 
   #capillary pressure data - not ok with this
   Cpc: 62052.84
@@ -59,7 +59,7 @@ compositional_data:
     rho_W: 999.6
     Mw_w: 18.015e-3
     Cw: 0
-    Pw: 13.79E6
+    Pw: 101325
 
   residual_saturations:
     Sorw: 0.2
@@ -86,12 +86,13 @@ compositional_data:
     Bin: [[0]]
     Pv: [0]
     vshift_parameter: [0.0]
+    Pb_guess: [9.5e6]
 
 #water saturation data
 Saturation:
   r1:
     type: all
-    value: 0.
+    value: 0.2
 
 Porosity:
   r1:
@@ -122,6 +123,6 @@ Wells:
     type: Injector
     type_region: box
     value: 2.720252624e-6
-    z: [1.]
-    ksi_total: 4471.52786469
+    z: [1., 0.]
+    ksi_total: 4587.37164401
     value_type: volumetric
