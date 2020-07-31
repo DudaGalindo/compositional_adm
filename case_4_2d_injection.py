@@ -215,7 +215,7 @@ for  arq in arquivos:
             e3center_L2 = (sum((P[0:133:3]-pressure3_)**2)*(1/45)**2)**(1/2)'''
 
 
-        datas = np.load('flying/results_2d_injection_25_case_452.npy', allow_pickle=True)
+        datas = np.load('flying/results_2d_injection_25_caset2_452.npy', allow_pickle=True)
 
         for data in datas[1:]:
             pressure4 = data[4] / 6894.75729

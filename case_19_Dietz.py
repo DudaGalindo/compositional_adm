@@ -9,7 +9,7 @@ name = 'results'
 arquivos = os.listdir(flying)
 for  arq in arquivos:
     if  arq.startswith(name):
-        datas = np.load('flying/results_Dietz_30dg_case_1207.npy', allow_pickle=True)
+        datas = np.load('flying/results_Dietz_30dg_caset_1207.npy', allow_pickle=True)
 
         x425_all = np.zeros([11,10])
         b=0

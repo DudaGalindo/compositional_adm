@@ -83,26 +83,22 @@ class StoneII:
 
     def relative_permeabilities(self, saturations):
         #saturations = [So,Sg,Sw]
-        Sorg = np.ones_like(saturations[2]) * self.Sorg
-        Sorw = np.ones_like(saturations[2]) * self.Sorw
-        Swr = np.ones(saturations[2].shape) * self.Swr
 
-        Sor = Sorw * (1 - saturations[1] / (1 - Swr - Sorg)) + \
-                    Sorg * saturations[1] / (1 - Swr - Sorg)
+        Sor = Sorw * (1 - saturations[1] / (1 - self.Swr - self.Sorg)) + \
+                    self.Sorg * saturations[1] / (1 - self.Swr - self.Sorg)
 
-        krw = self.krw0 * ((saturations[2] - Swr) / (1 - Swr - Sorw)) ** self.n_w
-        krg = self.krg0 * ((saturations[1] - self.Sgr) / (1 - Swr - Sorg - self.Sgr)) ** self.n_g
-        krow = self.krow0 * ((1 - saturations[2] - Sorw) / (1 - Swr - Sorw)) ** self.n_ow
-        krog = self.krog0 * ((1. - saturations[1] - Sorg - Swr) / (1 - Swr - self.Sgr - Sorg)) ** self.n_og
+        krw = self.krw0 * ((saturations[2] - self.Swr) / (1 - self.Swr - Sorw)) ** self.n_w
+        krg = self.krg0 * ((saturations[1] - self.Sgr) / (1 - self.Swr - self.Sorg - self.Sgr)) ** self.n_g
+        krow = self.krow0 * ((1 - saturations[2] - self.Sorw) / (1 - self.Swr - self.Sorw)) ** self.n_ow
+        krog = self.krog0 * ((1. - saturations[1] - self.Sorg - self.Swr) / (1 - self.Swr - self.Sgr - self.Sorg)) ** self.n_og
 
-        krw[saturations[2] <= Swr] = 0
-        krow[saturations[2]<= Swr] = self.krow0
-        krow[saturations[0]<= Sorw] = 0
-        krog[saturations[0]<= Sorg] = 0
+        krw[saturations[2] <= self.Swr] = 0
+        krow[saturations[2]<= self.Swr] = self.krow0
+        krow[saturations[0]<= self.Sorw] = 0
+        krog[saturations[0]<= self.Sorg] = 0
 
         kro = self.krow0 * ((krow/self.krow0 + krw) * (krog/self.krow0 + krg) - (krw + krg))
-        #import pdb; pdb.set_trace()
-        if any(kro<0): import pdb; pdb.set_trace()
+
         #kro[saturations[2]<Swr] = self.kro0 * ((saturations[0][saturations[2]<Swr] - self.Sor) / (1 - self.Sor - self.Sgr)) ** self.n_o
 
         '''Sw = np.array([Swr, 0.2899, 0.3778, 0.4667, 0.5556, 0.6444, 0.7, 0.7333, 0.8222, 0.9111, 1.])
