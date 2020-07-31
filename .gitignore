@@ -8,6 +8,7 @@
 !9x9x9.h5m
 *.vtk
 *.msh
+*.pyc
 *_0_0.yml
 !27x27x27.msh
 !100x1x1.msh
