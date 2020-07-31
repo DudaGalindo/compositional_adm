@@ -22,18 +22,23 @@ class BrooksAndCorey:
     def relative_permeabilities(self, fprop, saturations):
         #saturations = [So,Sg,Sw]
 
-        Swr = np.ones_like(saturations[2]) * self.Swr
+        Sorg = np.ones_like(saturations[2]) * self.Sorg
+        Sorw = np.ones_like(saturations[2]) * self.Sorw
+        Swr = np.ones(saturations[2].shape) * self.Swr
 
         Swr[saturations[2] < Swr] = saturations[2][saturations[2] < Swr]
+        Sorw[saturations[0] < self.Sorw] = saturations[0][saturations[0] < self.Sorw]
+        Sorg[saturations[0] < self.Sorg] = saturations[0][saturations[0] < self.Sorg]
+        Swr[saturations[2] < Swr] = saturations[2][saturations[2] < Swr]
 
-        Sor = self.Sorw * (1 - saturations[1] / (1 - Swr - self.Sorg)) + \
-                    self.Sorg * saturations[1] / (1 - Swr - self.Sorg)
+        Sor = Sorw * (1 - saturations[1] / (1 - Swr - Sorg)) + \
+                    Sorg * saturations[1] / (1 - Swr - Sorg)
 
         Sor[saturations[0] < Sor] = saturations[0][saturations[0] < Sor]
 
-        krw = self.krw0 * ((saturations[2] - Swr) / (1 - Swr - self.Sorw - self.Sgr)) ** self.n_w
-        kro = self.kro0 * ((saturations[0] - Sor) / (1 - Swr - self.Sorw - self.Sgr)) ** self.n_o
-        krg = self.krg0 * ((saturations[1] - self.Sgr) / (1 - Swr - self.Sorw - self.Sgr)) ** self.n_g
+        krw = self.krw0 * ((saturations[2] - Swr) / (1 - Swr - Sorw - self.Sgr)) ** self.n_w
+        kro = self.kro0 * ((saturations[0] - Sor) / (1 - Swr - Sorw - self.Sgr)) ** self.n_o
+        krg = self.krg0 * ((saturations[1] - self.Sgr) / (1 - Swr - Sorw - self.Sgr)) ** self.n_g
 
         '''parachor_number = np.array([71, 191, 431]) #entry parameter in grams.mole
         self.phase_molar_densities = fprop.phase_molar_densities * 10**(-6) # mole/m³ to mole/cm³
@@ -74,32 +79,39 @@ class StoneII:
         self.krog0 = float(direc.data_loaded['compositional_data']['relative_permeability_data']['krog0'])
         self.krg0 = float(direc.data_loaded['compositional_data']['relative_permeability_data']['krg0'])
 
+
+
     def relative_permeabilities(self, saturations):
         #saturations = [So,Sg,Sw]
-        
+        Sorg = np.ones_like(saturations[2]) * self.Sorg
+        Sorw = np.ones_like(saturations[2]) * self.Sorw
         Swr = np.ones(saturations[2].shape) * self.Swr
-        Swr[saturations[2] < Swr] = saturations[2][saturations[2] < Swr]
 
-        Sor = self.Sorw * (1 - saturations[1] / (1 - Swr - self.Sorg)) + \
-                    self.Sorg * saturations[1] / (1 - Swr - self.Sorg)
-        Sor[saturations[0] < Sor] = saturations[0][saturations[0] < Sor]
+        Sor = Sorw * (1 - saturations[1] / (1 - Swr - Sorg)) + \
+                    Sorg * saturations[1] / (1 - Swr - Sorg)
 
-        krw = self.krw0 * ((saturations[2] - Swr) / (1 - Swr - self.Sorw)) ** self.n_w
+        krw = self.krw0 * ((saturations[2] - Swr) / (1 - Swr - Sorw)) ** self.n_w
+        krg = self.krg0 * ((saturations[1] - self.Sgr) / (1 - Swr - Sorg - self.Sgr)) ** self.n_g
+        krow = self.krow0 * ((1 - saturations[2] - Sorw) / (1 - Swr - Sorw)) ** self.n_ow
+        krog = self.krog0 * ((1. - saturations[1] - Sorg - Swr) / (1 - Swr - self.Sgr - Sorg)) ** self.n_og
 
-        krg = self.krg0 * ((saturations[1] - self.Sgr) / (1 - Swr - self.Sorg - self.Sgr)) ** self.n_g
-        krow = self.krow0 * ((1 - saturations[2] - self.Sorw) / (1 - Swr - self.Sorw)) ** self.n_ow
-        krog = self.krog0 * ((1 - saturations[1] - self.Sorg - Swr) / (1 - Swr - self.Sgr - self.Sorg)) ** self.n_og
-        kro = self.krow0 *((krow/self.krow0 + krw) * (krog/self.krog0 + krg) - (krw + krg))
-        #kro[saturations[2]<self.Swr] = self.kro0 * ((saturations[0][saturations[2]<self.Swr] - self.Sor) / (1 - self.Sor - self.Sgr)) ** self.n_o
+        krw[saturations[2] <= Swr] = 0
+        krow[saturations[2]<= Swr] = self.krow0
+        krow[saturations[0]<= Sorw] = 0
+        krog[saturations[0]<= Sorg] = 0
 
+        kro = self.krow0 * ((krow/self.krow0 + krw) * (krog/self.krow0 + krg) - (krw + krg))
+        #import pdb; pdb.set_trace()
+        if any(kro<0): import pdb; pdb.set_trace()
+        #kro[saturations[2]<Swr] = self.kro0 * ((saturations[0][saturations[2]<Swr] - self.Sor) / (1 - self.Sor - self.Sgr)) ** self.n_o
 
-        '''Sw = np.array([self.Swr, 0.2899, 0.3778, 0.4667, 0.5556, 0.6444, 0.7, 0.7333, 0.8222, 0.9111, 1.])
+        '''Sw = np.array([Swr, 0.2899, 0.3778, 0.4667, 0.5556, 0.6444, 0.7, 0.7333, 0.8222, 0.9111, 1.])
         krw_ = np.array([0., 0.0020, 0.018, 0.0607, 0.1138, 0.2809, 0.4009, 0.4855, 0.7709, 1., 1.])
         krow_ = np.array([1., 0.6769, 0.4153, 0.2178, 0.0835, 0.0123, 0., 0., 0., 0., 0.])
         f_krw = interp1d(Sw, krw_)
         f_krow = interp1d(Sw, krow_)
 
-        Sl = np.array([self.Swr, 0.2899, 0.3778, 0.4667, 0.5556, 0.6444, 0.7, 0.7333, 0.8222, 0.9111, 1.])
+        Sl = np.array([Swr, 0.2899, 0.3778, 0.4667, 0.5556, 0.6444, 0.7, 0.7333, 0.8222, 0.9111, 1.])
         krl = np.array([0., 0., 0., 0.011, 0.037, 0.0878, 0.1715, 0.2963, 0.4705, 0.88, 1.])
         krg_ = np.array([1., 0.56, 0.39, 0.35, 0.2, 0.1, 0.05, 0.03, 0.01, 0.001, 0.])
         f_krl = interp1d(Sl, krl)

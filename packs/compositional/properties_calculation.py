@@ -71,6 +71,7 @@ class PropertiesCalc:
         fprop.component_mole_numbers = np.sum(component_phase_mole_numbers, axis = 1)
 
     def update_porous_volume(self, fprop):
+        #fprop.porosity = ctes.porosity * (1 + ctes.Cf * (fprop.P - ctes.Pf))
         fprop.Vp = ctes.porosity * ctes.Vbulk * (1 + ctes.Cf*(fprop.P - ctes.Pf))
 
     def update_saturations(self, Sw, phase_molar_densities, L, V):
@@ -100,6 +101,7 @@ class PropertiesCalc:
         fprop.phase_mole_numbers = np.empty([1, ctes.n_phases, ctes.n_volumes])
 
         if ctes.load_k:
+            #component_phase_mole_numbers =
             fprop.phase_mole_numbers[0,0,:] = np.sum(fprop.component_mole_numbers[0:ctes.Nc,:], axis = 0) * fprop.L
             fprop.phase_mole_numbers[0,1,:] = np.sum(fprop.component_mole_numbers[0:ctes.Nc,:], axis = 0) * fprop.V
 
@@ -154,9 +156,11 @@ class PropertiesCalc:
 
     def update_water_saturation(self, fprop, Nw):
         Swr = float(direc.data_loaded['compositional_data']['residual_saturations']['Swr'])
+        Sorw = float(direc.data_loaded['compositional_data']['residual_saturations']['Sorw'])
         fprop.ksi_W = fprop.ksi_W0 * (1 + ctes.Cw * (fprop.P - ctes.Pw))
         fprop.rho_W = fprop.ksi_W * ctes.Mw_w
         Sw = Nw * (1 / fprop.ksi_W) / fprop.Vp #fprop.Vp #or Vt ?
-        #Sw[Nk[ctes.n_components-1,:] <= 1.000001*self.Nw] = self.Sw_con[Nk[ctes.n_components-1,:] <= 1.000001*self.Nw]
-        Sw[Sw<self.Sw_con] = self.Sw_con[Sw<self.Sw_con]
+        #Sw[Nw <= 1.000001*self.Nw] = self.Sw_con[Nw <= 1.000001*self.Nw]
+        #Sw[Sw>self.Sw_con] = self.Sw_con[Sw>self.Sw_con]
+        #Sw[Sw>(1-Sorw)] = 1 - Sorw
         return Sw

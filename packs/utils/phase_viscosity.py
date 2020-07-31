@@ -73,7 +73,7 @@ class LorenzBrayClark:
         #                             self.zetas_r[ind_lower] / neta[ind_lower]
         # mi_phase[ind_higher] = self.mi_mix[ind_higher] + (Xs[ind_higher] ** 4 - 1) \
         #                         /(1e4*neta[ind_higher])
-
+        
         mi_phase = (self.mi_atm + (Xs ** 4 - 1e-4) / neta) * 1e-3 #return in Pa.s
         return mi_phase
 
