@@ -69,6 +69,7 @@ class run_simulation:
         #if self.t > 32405: import pdb; pdb.set_trace()
         self.update_vpi(fprop, wells)
         self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
+        if len(wells['ws_p'])>0:self.update_production(fprop, wells)
         self.update_loop()
         t1 = time.time()
         dt = t1 - t0
@@ -96,14 +97,19 @@ class run_simulation:
         return [np.array(['loop', 'vpi [s]', 'simulation_time [s]', 't [s]', 'pressure [Pa]', 'Sw', 'So', 'Sg',
                         'Oil_p', 'Gas_p', 'centroids'])]
 
+    def update_production(self, fprop, wells):
+        self.oil_production +=  abs(fprop.q_phase[:,0,:].sum()) *self.delta_t
+        #abs(sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.L[wells['ws_prod']] / \
+                                #fprop.phase_molar_densities[:,0,wells['ws_prod']]))
+        self.gas_production +=  abs(fprop.q_phase[:,1,:].sum())*self.delta_t 
+
+        #abs(sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.V[wells['ws_prod']]  / \
+                                #fprop.phase_molar_densities[:,1,wells['ws_prod']]))
+
     def update_current_compositional_results(self, M, wells, fprop, simulation_time: float = 0.0):
 
         #total_flux_internal_faces = fprop.total_flux_internal_faces.ravel() #* M.faces.normal[M.faces.internal]
         #total_flux_internal_faces_vector = fprop.total_flux_internal_faces.T * np.abs(M.faces.normal[M.faces.internal])
-        self.oil_production -=  sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.L[wells['ws_prod']] / \
-                                fprop.phase_molar_densities[:,0,wells['ws_prod']])
-        self.gas_production -=  sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.V[wells['ws_prod']]  / \
-                                fprop.phase_molar_densities[:,1,wells['ws_prod']])
 
         self.current_compositional_results = np.array([self.loop, self.vpi, simulation_time,
                     self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
