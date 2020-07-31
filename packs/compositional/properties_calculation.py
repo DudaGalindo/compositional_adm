@@ -20,7 +20,8 @@ class PropertiesCalc:
         self.Sw_con = fprop.Sw
         self.update_porous_volume(fprop)
         if ctes.load_w:
-            M.data['saturation'] = self.update_water_saturation(fprop, fprop.component_mole_numbers[-1,:])
+            M.data['saturation'], fprop.ksi_W, fprop.rho_W = \
+            self.update_water_saturation(fprop, fprop.component_mole_numbers[-1,:], fprop.P, fprop.Vp)
             fprop.Sw = M.data['saturation']
             fprop.phase_molar_densities, fprop.phase_densities = \
             self.set_water_properties(fprop, fprop.phase_molar_densities, fprop.phase_densities)
@@ -35,7 +36,8 @@ class PropertiesCalc:
     def run_inside_loop(self, M, fprop):
         self.update_porous_volume(fprop)
         if ctes.load_w:
-            M.data['saturation'] = self.update_water_saturation(fprop, fprop.component_mole_numbers[-1,:])
+            M.data['saturation'], fprop.ksi_W, fprop.rho_W = \
+            self.update_water_saturation(fprop, fprop.component_mole_numbers[-1,:], fprop.P, fprop.Vp)
             fprop.Sw = M.data['saturation']
             fprop.phase_molar_densities, fprop.phase_densities = \
             self.set_water_properties(fprop, fprop.phase_molar_densities, fprop.phase_densities)
@@ -113,12 +115,9 @@ class PropertiesCalc:
         fprop.Vt = np.sum(fprop.phase_mole_numbers / fprop.phase_molar_densities, axis = 1).ravel()
 
     def update_relative_permeabilities(self, fprop, So, Sg, Sw):
-        Sgr = float(direc.data_loaded['compositional_data']['residual_saturations']['Sgr'])
-        Swr = float(direc.data_loaded['compositional_data']['residual_saturations']['Swr'])
-
         saturations = np.array([So, Sg, Sw])
         kro,krg,krw, Sor = self.relative_permeability(fprop, saturations)
-        relative_permeabilities = np.zeros([1, ctes.n_phases, ctes.n_volumes])
+        relative_permeabilities = np.zeros([1, ctes.n_phases, len(So)])
         if ctes.load_k:
             relative_permeabilities[0,0,:] = kro
             relative_permeabilities[0,1,:] = krg
@@ -128,7 +127,7 @@ class PropertiesCalc:
         return relative_permeabilities
 
     def update_phase_viscosities(self, fprop, phase_molar_densities, component_molar_fractions):
-        phase_viscosities = np.empty([1, ctes.n_phases, ctes.n_volumes])
+        phase_viscosities = np.empty_like(phase_molar_densities)
         if ctes.load_k:
             phase_viscosity = self.phase_viscosity_class(fprop, phase_molar_densities)
             #phase_viscosities[0,0:2,:] = 0.02*np.ones([2,ctes.n_volumes]) #only for BL test
@@ -145,7 +144,7 @@ class PropertiesCalc:
         return mobilities
 
     def update_capillary_pressure(self, fprop):
-        """ not working yet"""
+        """ not working yet """
         #get_capillary_pressure = getattr(capillary_pressure, data_loaded['compositional_data']['capillary_pressure'])
         #get_capillary_pressure = get_capillary_pressure(data_loaded, data_impress, fprop.phase_molar_densities, fprop.component_molar_fractions)
         #Pcow, Pcog = get_capillary_pressure(data_loaded, fprop.Sw, fprop.So, fprop.Sg)
@@ -154,13 +153,8 @@ class PropertiesCalc:
         # Pcap[0,0,:] = Pcog
         # Pcap[0,1,:] = Pcow
 
-    def update_water_saturation(self, fprop, Nw):
-        Swr = float(direc.data_loaded['compositional_data']['residual_saturations']['Swr'])
-        Sorw = float(direc.data_loaded['compositional_data']['residual_saturations']['Sorw'])
-        fprop.ksi_W = fprop.ksi_W0 * (1 + ctes.Cw * (fprop.P - ctes.Pw))
-        fprop.rho_W = fprop.ksi_W * ctes.Mw_w
-        Sw = Nw * (1 / fprop.ksi_W) / fprop.Vp #fprop.Vp #or Vt ?
-        #Sw[Nw <= 1.000001*self.Nw] = self.Sw_con[Nw <= 1.000001*self.Nw]
-        #Sw[Sw>self.Sw_con] = self.Sw_con[Sw>self.Sw_con]
-        #Sw[Sw>(1-Sorw)] = 1 - Sorw
-        return Sw
+    def update_water_saturation(self, fprop, Nw, P, Vp):
+        ksi_W = fprop.ksi_W0[0] * (1 + ctes.Cw * (P - ctes.Pw))
+        rho_W = ksi_W * ctes.Mw_w
+        Sw = Nw * (1 / ksi_W) / Vp
+        return Sw, ksi_W, rho_W

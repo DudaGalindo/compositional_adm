@@ -84,10 +84,10 @@ class StoneII:
     def relative_permeabilities(self, saturations):
         #saturations = [So,Sg,Sw]
 
-        Sor = Sorw * (1 - saturations[1] / (1 - self.Swr - self.Sorg)) + \
+        Sor = self.Sorw * (1 - saturations[1] / (1 - self.Swr - self.Sorg)) + \
                     self.Sorg * saturations[1] / (1 - self.Swr - self.Sorg)
 
-        krw = self.krw0 * ((saturations[2] - self.Swr) / (1 - self.Swr - Sorw)) ** self.n_w
+        krw = self.krw0 * ((saturations[2] - self.Swr) / (1 - self.Swr - self.Sorw)) ** self.n_w
         krg = self.krg0 * ((saturations[1] - self.Sgr) / (1 - self.Swr - self.Sorg - self.Sgr)) ** self.n_g
         krow = self.krow0 * ((1 - saturations[2] - self.Sorw) / (1 - self.Swr - self.Sorw)) ** self.n_ow
         krog = self.krog0 * ((1. - saturations[1] - self.Sorg - self.Swr) / (1 - self.Swr - self.Sgr - self.Sorg)) ** self.n_og

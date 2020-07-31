@@ -34,7 +34,7 @@ class LorenzBrayClark:
 
         self.mi_components = mi_components[:, np.newaxis, np.newaxis]
 
-    def phase_viscosity_atm(self, fprop, component_molar_fractions):
+    def phase_viscosity_atm(self, component_molar_fractions):
         '''Hernig and Zipperer equation'''
         self.component_molar_fractions = component_molar_fractions[0:ctes.Nc,0:2,:]
 
@@ -73,12 +73,12 @@ class LorenzBrayClark:
         #                             self.zetas_r[ind_lower] / neta[ind_lower]
         # mi_phase[ind_higher] = self.mi_mix[ind_higher] + (Xs[ind_higher] ** 4 - 1) \
         #                         /(1e4*neta[ind_higher])
-        
+
         mi_phase = (self.mi_atm + (Xs ** 4 - 1e-4) / neta) * 1e-3 #return in Pa.s
         return mi_phase
 
     def __call__(self, fprop, component_molar_fractions):
         self.component_viscosity(fprop)
-        self.phase_viscosity_atm(fprop, component_molar_fractions)
+        self.phase_viscosity_atm(component_molar_fractions)
         mi_phase = self.phase_viscosity()
         return mi_phase
