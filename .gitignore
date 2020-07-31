@@ -28,7 +28,7 @@ impress(copia)/
 *.pyc
 *.imp
 .idea/
-
+*__pycache__
 
 
 *gmsh
