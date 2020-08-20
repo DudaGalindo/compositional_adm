@@ -97,8 +97,8 @@ class MUSCL:
         dNkds_vols[:,ds_vols!=0] = dNk_vols[:,ds_vols != 0] / ds_vols[ds_vols != 0][np.newaxis,:]
         self.all_neig = all_neig.sum(axis=1)
         self.identify_contour_faces()
-        dNkds_vols[:,:,all_neig.sum(axis=1)==1] = 0 #*dNkds_vols[:,:,all_neig.sum(axis=1)==1]
-        #dNkds_vols[:,:,ctes.v0[self.faces_contour].flatten()] = 0
+        #dNkds_vols[:,:,all_neig.sum(axis=1)==1] = 0 #*dNkds_vols[:,:,all_neig.sum(axis=1)==1]
+        dNkds_vols[:,:,ctes.v0[self.faces_contour].flatten()] = 0
         return dNkds_vols
 
     def get_faces_gradient(self, M, fprop, dNkds_vols):
@@ -273,7 +273,7 @@ class MUSCL:
 
     def wave_velocity_LLF(self, M, fprop, Nk_face, P_old):
         np.seterr(divide='ignore', invalid='ignore')
-        delta = 0.0001
+        delta = 0.000001
         dFkdNk = np.empty((ctes.n_internal_faces, ctes.n_components, ctes.n_components))
         dFkdNk_eigvalue = np.empty((ctes.n_components,ctes.n_internal_faces, 2))
         Fk_face = np.empty((ctes.n_components,ctes.n_internal_faces, 2))
@@ -298,8 +298,9 @@ class MUSCL:
                 Nk_face_minus = np.copy(Nk_face[:,:,i])
                 Nk_face_plus[k] += delta*0.5
                 Nk_face_minus[k] -= delta*0.5
-                Nk_face_plus[Nk_face_plus>np.max(Nk_face,axis=2)] = Nk_face[Nk_face_plus>np.max(Nk_face,axis=2),i]
-                Nk_face_minus[Nk_face_minus<np.min(Nk_face,axis=2)] = Nk_face[Nk_face_minus<np.min(Nk_face,axis=2),i]
+                #Nk_face_plus[Nk_face_plus>np.max(Nk_face,axis=2)] = Nk_face[Nk_face_plus>np.max(Nk_face,axis=2),i]
+                #Nk_face_minus[Nk_face_minus<np.min(Nk_face,axis=2)] = Nk_face[Nk_face_minus<np.min(Nk_face,axis=2),i]
+
                 dFkdNk[:,:,k] = ((self.Fk_Nk(fprop, M, Nk_face_plus, P_old) -
                                 self.Fk_Nk(fprop, M, Nk_face_minus, P_old))/
                                 (Nk_face_plus[k]-Nk_face_minus[k])).T
@@ -308,25 +309,30 @@ class MUSCL:
                 Nkg_minus = np.copy(Nkg)
                 Nkg_plus[k] += delta*0.5
                 Nkg_minus[k] -= delta*0.5
-                Nkg_plus[Nkg_plus>np.max(Nk_face,axis=2)] = Nkg[Nkg_plus>np.max(Nk_face,axis=2)]
-                Nkg_minus[Nkg_minus<np.min(Nk_face,axis=2)] = Nkg[Nkg_minus<np.min(Nk_face,axis=2)]
+                #Nkg_plus[Nkg_plus>np.max(Nk_face,axis=2)] = Nkg[Nkg_plus>np.max(Nk_face,axis=2)]
+                #Nkg_minus[Nkg_minus<np.min(Nk_face,axis=2)] = Nkg[Nkg_minus<np.min(Nk_face,axis=2)]
+
                 dFkdNk_gauss[:,:,k] = ((self.Fk_Nk(fprop, M, Nkg_plus, P_old) -
                                     self.Fk_Nk(fprop, M, Nkg_minus, P_old))/
                                     (Nkg_plus[k]-Nkg_minus[k])).T
+
+                dFkdNk[(Nk_face[k,:,0]-Nk_face[k,:,1])==0,:,k] = 0
+                dFkdNk_gauss[(Nk_face[k,:,0]-Nk_face[k,:,1])==0,:,k] = 0
+                dFkdNk_gauss[:,np.arange(ctes.n_components)!=k,k]=0
+                dFkdNk[:,np.arange(ctes.n_components)!=k,k]=0
                 if i==0:
                     Nkm_plus = np.copy(Nkm)
                     Nkm_minus = np.copy(Nkm)
                     Nkm_plus[k] += delta*0.5
                     Nkm_minus[k] -= delta*0.5
-                    Nkm_plus[Nkm_plus>np.max(Nk_face,axis=2)] = Nkm[Nkm_plus>np.max(Nk_face,axis=2)]
-                    Nkm_minus[Nkm_minus<np.min(Nk_face,axis=2)] = Nkm[Nkm_minus<np.min(Nk_face,axis=2)]
+                    #Nkm_plus[Nkm_plus>np.max(Nk_face,axis=2)] = Nkm[Nkm_plus>np.max(Nk_face,axis=2)]
+                    #Nkm_minus[Nkm_minus<np.min(Nk_face,axis=2)] = Nkm[Nkm_minus<np.min(Nk_face,axis=2)]
+
                     dFkdNk_m[:,:,k] = ((self.Fk_Nk(fprop, M, Nkm_plus, P_old) -
                             self.Fk_Nk(fprop, M, Nkm_minus, P_old))/
                             (Nkm_plus[k]-Nkm_minus[k])).T
-
-                dFkdNk[(Nk_face_plus-Nk_face_minus).T==0,k] = 0
-                dFkdNk_m[(Nkm_plus-Nkm_minus).T==0,k] = 0
-                dFkdNk_gauss[(Nkg_plus-Nkg_minus).T==0,k] = 0
+                    dFkdNk_m[(Nk_face[k,:,0]-Nk_face[k,:,1])==0,:,k] = 0
+                    dFkdNk_m[:,np.arange(ctes.n_components)!=k,k]=0
 
 
             eigval1, v = np.linalg.eig(dFkdNk)
@@ -338,6 +344,7 @@ class MUSCL:
         dFkdNk_m_eigvalue = eigval3.T
         alpha = np.concatenate((dFkdNk_eigvalue, dFkdNk_gauss_eigvalue), axis=-1)
         alpha = np.concatenate((alpha, dFkdNk_m_eigvalue[:,:,np.newaxis]), axis=-1)
+        #import pdb; pdb.set_trace()
         #alpha = (Fk_face[:,:,1] - Fk_face[:,:,0]) / (Nk_face[:,:,1] - Nk_face[:,:,0])
         #alpha[(Nk_face[:,:,1] - Nk_face[:,:,0])<=0.01] = dFkdNk_m[(Nk_face[:,:,1] - Nk_face[:,:,0])<=0.01]
         #alpha[(Fk_face[:,:,1] - Fk_face[:,:,0])==0] = 0
@@ -407,6 +414,7 @@ class MUSCL:
 
     def update_flux_LLF(self, Fk_face_LLF_all, Nk_face_LLF, alpha_LLF):
         alpha = np.max(abs(alpha_LLF),axis = 0)
+        #import pdb; pdb.set_trace()
         Fk_face_LLF = 0.5*(Fk_face_LLF_all.sum(axis=-1) - np.max(abs(alpha),axis=-1) * \
                     (Nk_face_LLF[:,:,1] - Nk_face_LLF[:,:,0]))
         return Fk_face_LLF, alpha
