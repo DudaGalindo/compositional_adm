@@ -1,0 +1,125 @@
+# Compressive Oil case with 2 components in 1-D reservoir
+mesh_name: 21x21x5.h5m
+name_save_file: 'results_3d_5k_condensate_gas_case'
+
+compositional: True
+hidrocarbon_components: True
+compressible_fluid: True
+water_component: True
+use_vpi: False
+
+
+load_compositional_data: False
+load_data: False
+convert_english_to_SI: False
+set_porosity: true
+set_permeability: true
+gravity: false
+deletar_results: false
+load_operators: false
+read_permeability: false
+monophasic_data: false
+monophasic_data:
+  gama: 10000.0
+  mi: 1.0
+
+
+# Case 3 of Li M.Sc. Thesis with case studies
+compositional_data:
+  #  Pensar em um jeito de reorganizar isso
+  g: 9.80665
+  CFL: 0.5
+  vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
+  time_to_save: [0.0, 43200000.]
+  maximum_time: 17280000
+  phase_viscosity: LorenzBrayClark
+  relative_permeability: BrooksAndCorey
+  capillary_pressure: Chang
+  equation_of_state: PengRobinson
+
+  rock_compressibility: 5.8e-10
+  Pf: 20.68e6
+
+  #capillary pressure data - not ok with this
+  Cpc: 62052.84
+  Epc: 2
+
+  time_data:
+    deltaPlim: 68.9476
+    deltaNlim: .0001
+    deltaSlim: .01
+    deltaVlim: .1
+    delta_t_ini: 1000
+    delta_tmax: 86400.
+    delta_tmin: .01
+
+  water_data:
+    mi_W: 8e-4
+    rho_W: 1000.733
+    Mw_w: 18.015e-3
+    Cw: 4.35e-10
+    Pw: 20.68e6
+
+  residual_saturations:
+    Sorw: 0.2
+    Sorg: 0.
+    Swr: 0.25
+    Sgr: 0
+
+  relative_permeability_data:
+    krw0: 0.3
+    kro0: 0.75
+    krg0: 0.75
+
+    n_g: 2.
+    n_o: 2.
+    n_w: 2.
+
+#  C1 C3 C4 C6 C7  C1 C3 C6 C10 C15 C20
+  component_data:
+    z: [0.7, 0.1, 0.05, 0.02, 0.13]
+    Tc: [190.56, 369.83, 425.16,507.44, 540.61]
+    Pc: [4605697.676, 4.256e6, 3.796e6, 3.031e6, 2.736e6]
+    vc: [0.00009926, 0.0002, 0.0002579, 0.00037018, 0.000428]
+    Mw: [16.042e-3, 44.1e-3, 58.12e-3, 86.178e-3, 100.198e-3]
+    w: [0.008, 0.152, 0.191, 0.299, 0.349]
+    Bin: [[0.,0.,0.,0.,0.], [0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.], [0.,0.,0.,0.,0.], [0.,0.,0.,0.,0.]]
+    Pv: [8e6, 0., 0., 0., 0.]
+    vshift_parameter: [0.0, 0.0, 0.0, 0., 0.]
+
+#water saturation data
+Saturation:
+  r1:
+    type: all
+    value: 0.25
+
+Porosity:
+  r1:
+    type: all
+    value: 0.3
+
+#Permeability in m^2
+Permeability:
+  r1:
+    type: all
+    value: [1e-14, 0, 0, 0, 1e-14, 0, 0, 0, 1e-14]
+
+
+Pressure:
+  r1:
+    type: all
+    value: 20.68e6
+
+Temperature:
+  r1:
+    type: all
+    value: 405.35
+
+Wells:
+  P1:
+    p0: [243.85714285714286, 243.85714285714286, -45.7]
+    p1: [268.24285714285713, 268.24285714285713, 0.0]
+    prescription: P
+    type: Producer
+    type_region: box
+    value: 6.89e6

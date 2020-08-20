@@ -400,8 +400,15 @@ class StabilityCheck:
             df = np.sum((phiv * dfildP - fil * dphivdP) / phiv**2, axis=0) - 1.
 
             i += 1
-            if i > 100  or any(df == 0):
-                #if any(self.P[ponteiro] == self.P[19]): ponteiro[19] = False; Pb[19] = 1.1*self.P[19]
+            if i > 100 or any(Pb < 0):
+                Pb[ponteiro] = 2 * self.P[ponteiro]
+                ponteiro[ponteiro] = False
+                break
+                print("Not converged - assuming its gas")
+
+
+            if any(df == 0):
+                import pdb; pdb.set_trace()
                 raise ValueError('Change Pguess - not converging')
 
             Pb[ponteiro] = Pb[ponteiro] - f / df

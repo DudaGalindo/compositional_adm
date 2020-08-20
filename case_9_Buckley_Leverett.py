@@ -58,9 +58,9 @@ SwD = np.append(SwD,Sw3)
 
 for  arq in arquivos:
     if  arq.startswith(name):
-        datas = np.load('flying/results_Buckley_Leverett_caset_506.npy', allow_pickle=True)
+        datas = np.load('flying/results_Buckley_Leverett_caset_602.npy', allow_pickle=True)
         import pdb; pdb.set_trace()
-        for data in datas[6:]:
+        for data in datas[7:]:
             Sw = data[5]
             x = np.linspace(0,1,500)
             plt.figure(1)

@@ -11,13 +11,15 @@ class delta_time:
         self.component_mole_numbers = fprop.component_mole_numbers
         #the initialization of this class is made in a different time step evaluation
 
-    def update_CFL(delta_t, wells, fprop):
+    def update_CFL(delta_t, wells, fprop, wave_velocity):
+        CFL_p = data_loaded['compositional_data']['CFL']
         old_settings = np.seterr(all = 'ignore', divide = 'ignore')
         CFL = delta_t * 1 / np.nanmin((fprop.component_mole_numbers[fprop.component_mole_numbers!=0] /
                    abs(fprop.component_flux_vols_total[fprop.component_mole_numbers!=0])))
+        if ctes.MUSCL: CFL = delta_t * np.max(abs(wave_velocity))
         #CFL_wells = delta_t * 1 / np.nanmin((fprop.component_mole_numbers[wells['ws_inj']] /
         #           abs(fprop.component_flux_vols_total[wells['ws_inj']])))
-        if (CFL > 1): delta_t = delta_t / 2
+        if (CFL > CFL_p): delta_t = delta_t / 2
         #delta_tcfl = np.nanmin(CFL * (fprop.component_mole_numbers) / fprop.component_flux_vols_total, axis = 1) #make nan
         np.seterr(**old_settings)
         return delta_t

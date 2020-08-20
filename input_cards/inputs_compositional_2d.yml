@@ -1,6 +1,6 @@
 #Oil injection in oil reservoir 2-D with 1 oil component
 mesh_name: 25x25x1.msh
-name_save_file: 'results_2d_injection_25_case'
+name_save_file: 'results_2d_injection_25_caset2'
 
 n_test: 0
 compositional: True
@@ -38,7 +38,7 @@ compositional_data:
   equation_of_state: PengRobinson
 
   rock_compressibility: 7.252e-8
-  Pf: 13.79e6
+  Pf: 13.78951458E6e6
 
   #capillary pressure data - not ok with this
   Cpc: 62052.84

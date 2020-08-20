@@ -28,7 +28,7 @@ Temperature:
     type: all
     value: 366.4833
 Wells:
-  P1:
+  P2:
     p0:
     - 0.0
     - 0.0
@@ -40,21 +40,25 @@ Wells:
     prescription: P
     type: Producer
     type_region: box
-    value: 13100038.3
+    value: 13.1E6
 compositional: true
 compositional_data:
   CFL: 0.5
   Cpc: 62052.84
   Epc: 2
-  Pf: 13.79E6
+  Pf: 13.78951458E6
   capillary_pressure: Chang
   component_data:
     Bin:
     - - 0
     Mw:
     - 0.14228
+    Pb_guess:
+    - 9.5e6
     Pc:
     - 2109795.64
+    Pv:
+    - 0
     Tc:
     - 619.28
     vc:
@@ -79,13 +83,13 @@ compositional_data:
   residual_saturations:
     Sgr: 0
     Sorg: 0
-    Sorw: 0
+    Sorw: 0.1
     Swr: 0.2
   rock_compressibility: 7.252e-08
   time_data:
     deltaNlim: 0.01
     deltaPlim: 68.9476
-    deltaSlim: 0.1
+    deltaSlim: 0.001
     deltaVlim: 0.0005
     delta_t_ini: 1000
     delta_tmax: 10000
@@ -107,7 +111,7 @@ compositional_data:
   water_data:
     Cw: 0
     Mw_w: 0.018015
-    Pw: 13.78951458E6
+    Pw: 13.79e6
     mi_W: 1e-3
     rho_W: 999.6
 compressible_fluid: true
@@ -122,7 +126,7 @@ mesh_name: 100x1x1.msh
 monophasic_data:
   gama: 10000.0
   mi: 1.0
-name_save_file: results_compressive_oil_caset
+name_save_file: results_compressive_oil_caset2
 read_permeability: false
 set_permeability: true
 set_porosity: true

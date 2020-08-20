@@ -93,6 +93,7 @@ class StoneII:
         krog = self.krog0 * ((1. - saturations[1] - self.Sorg - self.Swr) / (1 - self.Swr - self.Sgr - self.Sorg)) ** self.n_og
 
         krw[saturations[2] <= self.Swr] = 0
+        #krw[saturations[0]<= self.Swr] = self.krw0
         krow[saturations[2]<= self.Swr] = self.krow0
         krow[saturations[0]<= self.Sorw] = 0
         krog[saturations[0]<= self.Sorg] = 0

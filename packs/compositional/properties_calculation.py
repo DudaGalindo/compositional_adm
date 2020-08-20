@@ -18,7 +18,7 @@ class PropertiesCalc:
 
     def run_outside_loop(self, M, fprop):
         self.Sw_con = fprop.Sw
-        self.update_porous_volume(fprop)
+        fprop.Vp = self.update_porous_volume(fprop.P)
         if ctes.load_w:
             M.data['saturation'], fprop.ksi_W, fprop.rho_W = \
             self.update_water_saturation(fprop, fprop.component_mole_numbers[-1,:], fprop.P, fprop.Vp)
@@ -34,7 +34,7 @@ class PropertiesCalc:
         self.update_capillary_pressure(fprop)
 
     def run_inside_loop(self, M, fprop):
-        self.update_porous_volume(fprop)
+        fprop.Vp = self.update_porous_volume(fprop.P)
         if ctes.load_w:
             M.data['saturation'], fprop.ksi_W, fprop.rho_W = \
             self.update_water_saturation(fprop, fprop.component_mole_numbers[-1,:], fprop.P, fprop.Vp)
@@ -72,9 +72,10 @@ class PropertiesCalc:
         component_phase_mole_numbers = fprop.component_molar_fractions * fprop.phase_mole_numbers
         fprop.component_mole_numbers = np.sum(component_phase_mole_numbers, axis = 1)
 
-    def update_porous_volume(self, fprop):
+    def update_porous_volume(self, P):
         #fprop.porosity = ctes.porosity * (1 + ctes.Cf * (fprop.P - ctes.Pf))
-        fprop.Vp = ctes.porosity * ctes.Vbulk * (1 + ctes.Cf*(fprop.P - ctes.Pf))
+        Vp = ctes.porosity * ctes.Vbulk * (1 + ctes.Cf*(P - ctes.Pf))
+        return Vp
 
     def update_saturations(self, Sw, phase_molar_densities, L, V):
         if ctes.load_k:
@@ -123,15 +124,14 @@ class PropertiesCalc:
             relative_permeabilities[0,1,:] = krg
         if ctes.load_w:
             relative_permeabilities[0, ctes.n_phases-1,:] = krw
-
         return relative_permeabilities
 
     def update_phase_viscosities(self, fprop, phase_molar_densities, component_molar_fractions):
         phase_viscosities = np.empty_like(phase_molar_densities)
         if ctes.load_k:
             phase_viscosity = self.phase_viscosity_class(fprop, phase_molar_densities)
-            #phase_viscosities[0,0:2,:] = 0.02*np.ones([2,ctes.n_volumes]) #only for BL test
-            #phase_viscosities[0,0:2,:] = 0.001*np.ones([2,ctes.n_volumes]) #only for Dietz test
+            #phase_viscosities[0,0:2,:] = 0.02*np.ones([2,len(phase_molar_densities[0,0,:])]) #only for BL test
+            #phase_viscosities[0,0:2,:] = 0.001*np.ones([2,len(phase_molar_densities[0,0,:])]) #only for Dietz test
             phase_viscosities[0,0:2,:] = phase_viscosity(fprop, component_molar_fractions)
         if ctes.load_w:
             phase_viscosities[0,ctes.n_phases-1,:] = data_loaded['compositional_data']['water_data']['mi_W']

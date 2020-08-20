@@ -95,13 +95,13 @@ class run_simulation:
     def get_empty_current_compositional_results(self):
 
         return [np.array(['loop', 'vpi [s]', 'simulation_time [s]', 't [s]', 'pressure [Pa]', 'Sw', 'So', 'Sg',
-                        'Oil_p', 'Gas_p', 'centroids'])]
+                        'Oil_p', 'Gas_p', 'z', 'centroids'])]
 
     def update_production(self, fprop, wells):
         self.oil_production +=  abs(fprop.q_phase[:,0,:].sum()) *self.delta_t
         #abs(sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.L[wells['ws_prod']] / \
                                 #fprop.phase_molar_densities[:,0,wells['ws_prod']]))
-        self.gas_production +=  abs(fprop.q_phase[:,1,:].sum())*self.delta_t 
+        self.gas_production +=  abs(fprop.q_phase[:,1,:].sum())*self.delta_t
 
         #abs(sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.V[wells['ws_prod']]  / \
                                 #fprop.phase_molar_densities[:,1,wells['ws_prod']]))
@@ -113,7 +113,7 @@ class run_simulation:
 
         self.current_compositional_results = np.array([self.loop, self.vpi, simulation_time,
                     self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
-                    self.gas_production, M.data['centroid_volumes']])
+                    self.gas_production, fprop.z, M.data['centroid_volumes']])
         self.all_compositional_results.append(self.current_compositional_results)
 
     def export_current_compositional_results(self):

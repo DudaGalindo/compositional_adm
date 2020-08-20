@@ -16,9 +16,9 @@ def init(M):
     global Vbulk
     global R
     global EOS_class
-
+    global MUSCL
     EOS_class = getattr(equation_of_state, data_loaded['compositional_data']['equation_of_state'])
-
+    MUSCL = data_loaded['compositional_data']['MUSCL']['set']
     Pf = np.array(data_loaded['compositional_data']['Pf']).astype(float)
     Cf = np.array(data_loaded['compositional_data']['rock_compressibility']).astype(float)
     R = 8.3144598
