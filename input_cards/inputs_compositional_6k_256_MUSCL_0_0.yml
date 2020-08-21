@@ -1,6 +1,6 @@
 #Compressive Oil case with 6 components in 1-D reservoir
 mesh_name: 256x1x1_6k.msh
-name_save_file: 'results_water_inj_6k_256_MUSCL_modified_case_LLF'
+name_save_file: 'results_water_inj_6k_256_MUSCL_modified_case'
 
 compositional: True
 hidrocarbon_components: True
@@ -50,7 +50,7 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: .1
-    deltaSlim: .005
+    deltaSlim: .0025
     deltaVlim: .1
     delta_t_ini: 100
     delta_tmax: 86400

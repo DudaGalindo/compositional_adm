@@ -4,8 +4,6 @@ from ..directories import data_loaded
 from scipy.misc import derivative
 from . import equation_of_state
 from ..utils import constants as ctes
-import sympy as smp
-
 
 ## Encontrar os pontos estacionarios. Estes correspondem aos pontos nos quais a derivada de g com respeito a Y é 0
 ## Todas as equações foram confirmadas pelo livro do Dandekar e a biblioteca do thermo
