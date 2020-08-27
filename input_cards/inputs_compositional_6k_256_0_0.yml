@@ -28,7 +28,10 @@ monophasic_data:
 compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 1
-  MUSCL: False
+  MUSCL:
+    set: False
+    DW: False
+    LLF: True
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [8640000, 17280000]
   maximum_time: 17280000
@@ -47,7 +50,7 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: .1
-    deltaSlim: .0008
+    deltaSlim: .0025
     deltaVlim: .1
     delta_t_ini: 100
     delta_tmax: 86400
@@ -131,7 +134,7 @@ Wells:
     value_type: volumetric
 
   P2:
-    p0: [2741.86875, 0.0, -10]
+    p0: [2720.53125, 0.0, -10]
     p1: [2731.2, 10.66875, 0.0]
     prescription: P
     type: Producer
