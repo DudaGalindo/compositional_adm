@@ -27,7 +27,7 @@ for arq in arquivos:
         n=128
         mode = 'LLF'
 
-        datas = np.load('flying/results_water_inj_6k_128_MUSCL_modified_case_2826.npy', allow_pickle=True)
+        datas = np.load('flying/results_water_inj_6k_128_MUSCL_modified_case_LLF_2826.npy', allow_pickle=True)
         for data in datas[2:]:
             SwLLF = data[5]
             SoLLF = data[6]
@@ -46,16 +46,6 @@ for arq in arquivos:
             Gas_p = data[9]
             pressure = data[4]/1e3
             time = data[3]
-            #x1 = np.linspace(0.54624,2725.7376,500)
-        datas = np.load('flying/results_water_inj_6k_128_MUSCL_modified_case_upw_2307.npy', allow_pickle=True)
-        for data in datas[2:]:
-            Sw_MUSCL = data[5]
-            So_MUSCL = data[6]
-            Sg_MUSCL = data[7]
-            Oil_p_MUSCL = data[8]
-            Gas_p_MUSCL = data[9]
-            pressure_MUSCL = data[4]/1e3
-            time_MUSCL = data[3]
 
         #x = np.linspace(0.54624/n,2731.2/n*(n-1),n)
         x1 = np.linspace(0.54624, 2731.2, n)
@@ -106,6 +96,9 @@ for arq in arquivos:
             pressure_MUSCL8 = data[4]/1e3
             n=8
             x8 = np.linspace(0.54624/n,2731.2/n*(n-1),n)
+            e8_max = max(abs(P[0:-1:8]-pressure_MUSCL8))
+            e8_L2 = (sum((P[0:-1:8]-pressure_MUSCL8)**2)*(1/15)**2)**(1/2)
+
 
         datas = np.load('flying/results_water_inj_6k_16_MUSCL_modified_case_LLF_1020.npy', allow_pickle=True)
         for data in datas[2:]:
@@ -115,6 +108,10 @@ for arq in arquivos:
             pressure_MUSCL16 = data[4]/1e3
             n=16
             x16 = np.linspace(0.54624/n,2731.2/n*(n-1),n)
+            e16_max = max(abs(P[0:-1:16]-pressure_MUSCL16))
+            e16_L2 = (sum((P[0:-1:16]-pressure_MUSCL16)**2)*(1/15)**2)**(1/2)
+            R16_L2 = math.log(e8_L2/e16_L2,3)
+            R16_max = math.log(e8_max/e16_max, 3)
 
         datas = np.load('flying/results_water_inj_6k_32_MUSCL_modified_case_LLF_1693.npy', allow_pickle=True)
         for data in datas[2:]:
@@ -124,6 +121,10 @@ for arq in arquivos:
             pressure_MUSCL32 = data[4]/1e3
             n=32
             x32 = np.linspace(0.54624/n,2731.2/n*(n-1),n)
+            e32_max = max(abs(P[0:-1:32]-pressure_MUSCL32))
+            e32_L2 = (sum((P[0:-1:32]-pressure_MUSCL32)**2)*(1/15)**2)**(1/2)
+            R32_L2 = math.log(e16_L2/e32_L2,3)
+            R32_max = math.log(e16_max/e32_max, 3)
 
         datas = np.load('flying/results_water_inj_6k_64_MUSCL_modified_case_LLF_1460.npy', allow_pickle=True)
         for data in datas[2:]:
@@ -133,6 +134,10 @@ for arq in arquivos:
             pressure_MUSCL64 = data[4]/1e3
             n=64
             x64 = np.linspace(0.54624/n,2731.2/n*(n-1),n)
+            e64_max = max(abs(P[0:-1:64]-pressure_MUSCL64))
+            e64_L2 = (sum((P[0:-1:64]-pressure_MUSCL64)**2)*(1/15)**2)**(1/2)
+            R64_L2 = math.log(e16_L2/e64_L2,3)
+            R64_max = math.log(e16_max/e64_max, 3)
 
         datas = np.load('flying/results_water_inj_6k_128_MUSCL_modified_case_LLF_2826.npy', allow_pickle=True)
         for data in datas[2:]:
@@ -142,8 +147,23 @@ for arq in arquivos:
             pressure_MUSCL128 = data[4]/1e3
             n=128
             x128 = np.linspace(0.54624/n,2731.2/n*(n-1),n)
+            e128_max = max(abs(P[0:-1:128]-pressure_MUSCL128))
+            e128_L2 = (sum((P[0:-1:128]-pressure_MUSCL128)**2)*(1/15)**2)**(1/2)
+            R128_L2 = math.log(e64_L2/e128_L2,3)
+            R128_max = math.log(e64_max/e128_max, 3)
 
-
+        datas = np.load('flying/results_water_inj_6k_256_MUSCL_modified_case_LLF_2826.npy', allow_pickle=True)
+        for data in datas[2:]:
+            Sw_MUSCL256 = data[5]
+            So_MUSCL256 = data[6]
+            Sg_MUSCL256 = data[7]
+            pressure_MUSCL256 = data[4]/1e3
+            n=256
+            x256 = np.linspace(0.54624/n,2731.2/n*(n-1),n)
+            e256_max = max(abs(P[0:-1:256]-pressure_MUSCL256))
+            e256_L2 = (sum((P[0:-1:256]-pressure_MUSCL256)**2)*(1/15)**2)**(1/2)
+            R256_L2 = math.log(e128_L2/e256_L2,3)
+            R256_max = math.log(e128_max/e256_max, 3)
 
         mode = 'LLF'
 
