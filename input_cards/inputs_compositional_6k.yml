@@ -28,7 +28,8 @@ monophasic_data:
 compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 1
-  MUSCL: False
+  MUSCL:
+    set: False
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [8640000, 17280000]
   maximum_time: 17280000

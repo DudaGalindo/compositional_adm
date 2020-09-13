@@ -11,7 +11,7 @@ t = np.array([274752, 432000., 589248.0, 745632., 902880, 1059264.0, 1216512., 1
 
 por = 0.2
 k = 500
-miu = 0.249
+miu = 0.2489
 L = 2000
 Pi = 2000
 Pe = 1900
@@ -43,7 +43,7 @@ for td in tds:
         P[j,i] = Pd[j,i]*(Pi-Pe) + Pe
     j+=1
 
-p_ans = P
+p_ans = P * 6894.75729/1e6
 x_ans = xd
 
 for arq in arquivos:
@@ -60,7 +60,7 @@ for arq in arquivos:
         b = 0
         pressure = np.zeros([len(t),100])
         for data in datas[1:]:
-            pressure[b,:] = data[4] / 6894.75729
+            pressure[b,:] = data[4]/1e6
             time = data[3]
             b = b+1
 
@@ -68,18 +68,29 @@ for arq in arquivos:
         #plt.title('t = 5 days')
         t = t/86400
         for tt in range(len(t)):
-            plt.plot(x_ans, p_ans[tt,:], 'k')
+            #plt.plot(x_ans, p_ans[tt,:], label = ('{}Days'.format(t[tt])) )
             plt.plot(x, pressure[tt,:], label = ('{}Days'.format(t[tt])) )
 
 
-        plt.figure(1)
+        fig1 = plt.figure(1)
         #plt.plot(x_ans,p_ans[1,:],'r',x, pressure[1,:], 'g')
-        plt.grid()
         plt.legend(bbox_to_anchor=(.48, 1.15), loc=9, borderaxespad=0., ncol = 5, handletextpad = 0.1)
-        plt.ylabel('Pressure (psi)')
-        plt.xlabel('Dimensionless distance')
-        plt.grid()
-        plt.savefig('results/compositional/pressure_comp_oil22' + '.png')
+        plt.ylabel('Pressão (MPa)')
+        plt.xlabel('Distância Adimensional')
+        #plt.title('Solução Analítica')
+        plt.grid(fig1)
+        plt.savefig('results/compositional/pressure_comp_oil_pt_fou' + '.png')
+
+        fig2 = plt.figure(2)
+        plt.grid(fig2)
+        plt.plot(x, pressure[1], 'b')
+        plt.plot(x_ans, p_ans[1], 'r')
+        #plt.legend(bbox_to_anchor=(.48, 1.15), loc=9, borderaxespad=0., ncol = 5, handletextpad = 0.1)
+        plt.ylabel('Pressão (psi)')
+        plt.xlabel('Distância Adimensional')
+        plt.legend(('FOU', 'Solução Analítica'))
+        plt.title('t = 5 dias')
+        plt.savefig('results/compositional/pressure_comp_oil_5days' + '.png')
         import pdb; pdb.set_trace()
 
 

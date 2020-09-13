@@ -42,8 +42,8 @@ p2 = np.polyder(p1)
 diff_fw = np.polyval(p2, Sw)
 
 ## Find the saturation shock:
-for n in range(1, 500):
-    if abs((fw[n])/(Sw[n]-Swr) - diff_fw[n]) < 0.009:
+for n in range(0, 500):
+    if abs((fw[n] - 0.)/(Sw[n] - Swr) - diff_fw[n]) < 0.009:
         Swf = Sw[n]
         slope_Swf = (fw[n])/(Sw[n]-Swr)
         a = n
@@ -53,23 +53,25 @@ Sw2 = np.linspace(Swr, Swf, 5)
 xD2 = np.linspace(slope_Swf*td,slope_Swf*td,5)
 
 ## Water saturation profile before water front:
-Sw1 = np.zeros(a-1)
-for i in range(0,a-1):
+Sw1 = np.zeros(a)
+for i in range(0,a):
     Sw1[i] = Swr
-    xD1 = np.linspace(1, slope_Swf*td,a-1)
+    xD1 = np.linspace(1, slope_Swf*td,a)
 
 ## Water saturation profile behind water front:
-Sw3 = np.zeros(500-a+1)
-xD3 = np.zeros(500-a+1)
-for j in range(a-1,500):
-    Sw3[j-(a-1)] = Sw[j]
-    xD3[j-(a-1)] = diff_fw[j]*td
-
+Sw3 = np.zeros(500-a)
+xD3 = np.zeros(500-a)
+for j in range(a,500):
+    Sw3[j-a] = Sw[j]
+    xD3[j-a] = diff_fw[j]*td
+import pdb; pdb.set_trace()
+Sw3[xD3<0] = Sw3[xD3<0][0]
+xD3[xD3<0] = 0
 xD = np.append(xD1,xD2)
 xD = np.append(xD,xD3)
+
 SwD = np.append(Sw1,Sw2)
 SwD = np.append(SwD,Sw3)
-
 
 for  arq in arquivos:
     if  arq.startswith(name):
@@ -80,15 +82,15 @@ for  arq in arquivos:
             Sw = data[5]
             x = np.linspace(0,1,500)
             plt.figure(1)
-            plt.plot(x, Sw, 'r', xD, SwD, 'y')
+            plt.plot(x, Sw, 'b', xD, SwD, 'r')
             plt.grid()
             loop = data[0]
-            plt.legend(('PADMEC', 'Analytical Solution'))
-            plt.title('Buckley-Leverett Solution Example')
-            plt.ylabel('Water Saturation')
-            plt.xlabel('Dimensionless distance')
+            plt.legend(('FOU', 'Solução Analítica'))
+            plt.title('t = 0.2 VPI')
+            plt.ylabel('Saturação de Água')
+            plt.xlabel('Distância Adimensional')
             plt.savefig('results/compositional/saturation_w_vert_BL_comparison11.png' )
-
+            import pdb; pdb.set_trace()
 
         '''datas = np.load('flying/results_vertical_case_7855.npy', allow_pickle=True)
         import pdb; pdb.set_trace()
