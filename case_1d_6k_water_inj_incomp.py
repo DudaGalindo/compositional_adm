@@ -24,20 +24,10 @@ for arq in arquivos:
 
         fSg = open('Sg_incomp_low.txt','r')
         Sg_CMG = [float(line.rstrip('\n\r')) for line in fSg]
-        n=128
-        mode = 'hibrid'
+        n=512
+        mode = 'upw'
 
-        datas = np.load('flying/results_water_inj_6k_128_MUSCL_modified_case_LLF_2826.npy', allow_pickle=True)
-        for data in datas[2:]:
-            SwLLF = data[5]
-            SoLLF = data[6]
-            SgLLF = data[7]
-            Oil_p = data[8]
-            Gas_p = data[9]
-            pressureLLF = data[4]/1e3
-            time = data[3]
-
-        datas = np.load('flying/results_water_inj_6k_128_modified_case_2824.npy', allow_pickle=True)
+        datas = np.load('flying/results_water_inj_6k_modified_case_10589.npy', allow_pickle=True)
         for data in datas[2:]:
             Sw = data[5]
             So = data[6]
@@ -46,8 +36,10 @@ for arq in arquivos:
             Gas_p = data[9]
             pressure = data[4]/1e3
             time = data[3]
+            x1 = np.linspace(0.54624/500,2731.2/500*(500-1),500)
+
             #x1 = np.linspace(0.54624,2725.7376,500)
-        datas = np.load('flying/results_water_inj_6k_128_MUSCL_modified_case_upw_2307.npy', allow_pickle=True)
+        datas = np.load('flying/results_water_inj_6k_512_MUSCL_modified_case_LLF_18138.npy', allow_pickle=True)
         for data in datas[2:]:
             Sw_MUSCL_upw = data[5]
             So_MUSCL_upw = data[6]
@@ -56,35 +48,22 @@ for arq in arquivos:
             Gas_p_MUSCL_upw = data[9]
             pressure_MUSCL_upw = data[4]/1e3
             time_MUSCL_upw = data[3]
+            x = np.linspace(0.54624/n,2731.2/n*(n-1),n)
 
-        datas = np.load('flying/results_water_inj_6k_128_MUSCL_modified_case_3761.npy', allow_pickle=True)
-        for data in datas[2:]:
-            Sw_MUSCL = data[5]
-            So_MUSCL = data[6]
-            Sg_MUSCL = data[7]
-            Oil_p_MUSCL = data[8]
-            Gas_p_MUSCL = data[9]
-            pressure_MUSCL = data[4]/1e3
-            time_MUSCL = data[3]
 
-        #x = np.linspace(0.54624/n,2731.2/n*(n-1),n)
-        x1 = np.linspace(0.54624, 2731.2, n)
-        x = x1
         plt.figure(1)
         plt.title('t = 200 days - ' + '{}'.format(n) + 'x1x1 mesh')
-        plt.plot(x1, pressureLLF,'g', x1, pressure, 'k', x_CMG, P_CMG, 'r', x, pressure_MUSCL_upw, 'y',
-        x, pressure_MUSCL, 'b')
+        plt.plot(x1, pressure, 'k', x_CMG, P_CMG, 'r', x, pressure_MUSCL_upw, 'y')
         plt.ylabel('Pressure (kPa)')
         plt.xlabel('Distance')
-        plt.legend(('PADMEC-MUSCL_LLF', 'PADMEC-FOUM', 'CMG - 1024 elements', 'PADMEC-MUSCL_UPW', 'PADMEC-MUSCL'))
+        plt.legend(('PADMEC-FOUM', 'CMG - 1024 elements', 'PADMEC-MUSCL_UPW'))
         plt.grid()
         plt.savefig('results/compositional/MUSCL_tests/pressure_6k_MUSCL_modified' + '{}'.format(n) + mode +'.png')
 
         plt.figure(2)
         plt.title('t = 200 days - ' + '{}'.format(n) + 'x1x1 mesh')
-        plt.plot(x1, SoLLF, 'g', x1, So, 'k', x_CMG, So_CMG, 'r', x, So_MUSCL_upw, 'y',
-        x, So_MUSCL, 'b')
-        plt.legend(('PADMEC-MUSCL_LLF', 'PADMEC-FOUM', 'CMG - 1024 elements', 'PADMEC-MUSCL_UPW', 'PADMEC-MUSCL'))
+        plt.plot(x1, So, 'k', x_CMG, So_CMG, 'r', x, So_MUSCL_upw, 'y')
+        plt.legend(('PADMEC-FOUM', 'CMG - 1024 elements', 'PADMEC-MUSCL_UPW'))
         plt.ylabel('Oil saturation')
         plt.xlabel('Distance')
         plt.grid()
@@ -92,9 +71,8 @@ for arq in arquivos:
 
         plt.figure(3)
         plt.title('t = 200 days - ' + '{}'.format(n) + 'x1x1 mesh')
-        plt.plot(x1, SwLLF, 'g', x1, Sw, 'k', x_CMG, Sw_CMG, 'r', x, Sw_MUSCL_upw, 'y',
-        x, Sw_MUSCL, 'b')
-        plt.legend(('PADMEC-MUSCL_LLF', 'PADMEC-FOUM', 'CMG - 1024 elements', 'PADMEC-MUSCL_UPW', 'PADMEC-MUSCL'))
+        plt.plot( x1, Sw, 'k', x_CMG, Sw_CMG, 'r', x, Sw_MUSCL_upw, 'y')
+        plt.legend(('PADMEC-FOUM', 'CMG - 1024 elements', 'PADMEC-MUSCL_UPW'))
         plt.ylabel('Water saturation')
         plt.xlabel('Distance')
         plt.grid()
@@ -102,9 +80,8 @@ for arq in arquivos:
 
         plt.figure(4)
         plt.title('t = 200 days - ' + '{}'.format(n) + 'x1x1 mesh')
-        plt.plot(x1, SgLLF, 'g', x1, Sg, 'k', x_CMG, Sg_CMG, 'r', x, Sg_MUSCL_upw, 'y',
-        x, Sg_MUSCL, 'b')
-        plt.legend(('PADMEC-MUSCL_LLF', 'PADMEC-FOUM', 'CMG - 1024 elements', 'PADMEC-MUSCL_UPW', 'PADMEC-MUSCL'))
+        plt.plot(x1, Sg, 'k', x_CMG, Sg_CMG, 'r', x, Sg_MUSCL_upw, 'y')
+        plt.legend(('PADMEC-FOUM', 'CMG - 1024 elements', 'PADMEC-MUSCL_UPW'))
         plt.ylabel('Gas saturation')
         plt.xlabel('Distance')
         plt.grid()

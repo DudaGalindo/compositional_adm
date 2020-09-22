@@ -31,7 +31,7 @@ compositional_data:
   MUSCL:
     set: True
     DW: False
-    LLF: True
+    LLF: False
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [8640000, 17280000]
   maximum_time: 17280000
