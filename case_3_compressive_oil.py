@@ -86,7 +86,7 @@ for arq in arquivos:
         plt.plot(x, pressure[1], 'b')
         plt.plot(x_ans, p_ans[1], 'r')
         #plt.legend(bbox_to_anchor=(.48, 1.15), loc=9, borderaxespad=0., ncol = 5, handletextpad = 0.1)
-        plt.ylabel('Pressão (psi)')
+        plt.ylabel('Pressão (MPa)')
         plt.xlabel('Distância Adimensional')
         plt.legend(('FOU', 'Solução Analítica'))
         plt.title('t = 5 dias')

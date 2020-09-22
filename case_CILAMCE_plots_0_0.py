@@ -25,10 +25,10 @@ for arq in arquivos:
 
         fSg = open('Sg_incomp_low.txt','r')
         Sg_CMG = [float(line.rstrip('\n\r')) for line in fSg]
-        n=256
+        n=128
         mode = 'LLF'
 
-        datas = np.load('flying/results_water_inj_6k_256_MUSCL_modified_case_LLF_7525.npy', allow_pickle=True)
+        datas = np.load('flying/results_water_inj_6k_128_MUSCL_modified_case_LLF_2826.npy', allow_pickle=True)
         for data in datas[2:]:
             SwLLF = data[5]
             SoLLF = data[6]
@@ -38,7 +38,7 @@ for arq in arquivos:
             pressureLLF = data[4]/1e6
             time = data[3]
 
-        datas = np.load('flying/results_water_inj_6k_256_modified_case_4419.npy', allow_pickle=True)
+        datas = np.load('flying/results_water_inj_6k_128_modified_case_2824.npy', allow_pickle=True)
         for data in datas[2:]:
             Sw = data[5]
             So = data[6]
@@ -56,14 +56,14 @@ for arq in arquivos:
         plt.plot(x1, pressureLLF,'b',x1, pressure,'-r', x_CMG, np.array([P_CMG])[0]/1e3, 'k', mfc='none')
         plt.ylabel('Pressão (MPa)')
         plt.xlabel('Distância (m)')
-        plt.legend(('MUSCL - 256 volumes', 'FOU - 256 volumes', 'CMG - 1024 volumes'))
+        plt.legend(('MUSCL - '+str(n)+' volumes', 'FOU - '+str(n)+' volumes', 'CMG - 1024 volumes'))
         plt.grid()
         plt.savefig('results/compositional/MUSCL_tests/pressure_6k_MUSCL_modified' + '{}'.format(n) + mode +'.png')
 
         plt.figure(2)
         plt.title('t = 200 dias ')
         plt.plot(x1, SoLLF, 'b',x1, So, '-r', x_CMG, So_CMG, 'k', mfc='none')
-        plt.legend(('MUSCL - 256 volumes', 'FOU - 256 volumes', 'CMG - 1024 volumes'))
+        plt.legend(('MUSCL - '+str(n)+' volumes', 'FOU - '+str(n)+' volumes', 'CMG - 1024 volumes'))
         plt.ylabel('Saturação de Óleo')
         plt.xlabel('Distância (m)')
         plt.grid()
@@ -72,7 +72,7 @@ for arq in arquivos:
         plt.figure(3)
         plt.title('t = 200 dias')
         plt.plot(x1, SwLLF, 'b',x1, Sw, '-r', x_CMG, Sw_CMG, 'k', mfc='none')
-        plt.legend(('MUSCL - 256 volumes', 'FOU - 256 volumes', 'CMG - 1024 volumes'))
+        plt.legend(('MUSCL - '+str(n)+' volumes', 'FOU - '+str(n)+' volumes', 'CMG - 1024 volumes'))
         plt.ylabel('Saturação de Água')
         plt.xlabel('Distância (m)')
         plt.grid()
@@ -81,7 +81,7 @@ for arq in arquivos:
         plt.figure(4)
         plt.title('t = 200 dias')
         plt.plot(x1, SgLLF, '-b',x1, Sg, '-r', x_CMG, Sg_CMG, 'k', mfc='none')
-        plt.legend(('MUSCL - 256 volumes', 'FOU - 256 volumes', 'CMG - 1024 volumes'))
+        plt.legend(('MUSCL - '+str(n)+' volumes', 'FOU - '+str(n)+' volumes', 'CMG - 1024 volumes'))
         plt.ylabel('Saturação de Gás')
         plt.xlabel('Distância (m)')
         plt.grid()
@@ -253,7 +253,7 @@ for arq in arquivos:
         plt.plot(x[0:],-ref_line-3.5,'-k')
         plt.plot()
         plt.legend(('MUSCL','FOU','$2^{a}$ ordem'))
-        plt.ylabel('$log_2({L_2}_{erro})$')
+        plt.ylabel('$log_2({E}_{L_2})$')
         plt.xlabel('$log_2(N)$')
         plt.grid()
         plt.savefig('results/compositional/CILAMCE_L2_norm_both_pt' + mode +'.png')
