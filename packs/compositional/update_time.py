@@ -8,26 +8,26 @@ class delta_time:
         self.So = fprop.So
         self.Sg = fprop.Sg
         self.Sw = fprop.Sw
-        self.component_mole_numbers = fprop.component_mole_numbers
+        self.Nk = fprop.Nk
         #the initialization of this class is made in a different time step evaluation
 
     def update_CFL(delta_t, wells, fprop, wave_velocity):
         CFL_p = data_loaded['compositional_data']['CFL']
         old_settings = np.seterr(all = 'ignore', divide = 'ignore')
-        CFL = delta_t * 1 / np.nanmin((fprop.component_mole_numbers[fprop.component_mole_numbers!=0] /
-                   abs(fprop.component_flux_vols_total[fprop.component_mole_numbers!=0])))
+        CFL = delta_t * 1 / np.nanmin((fprop.Nk[fprop.Nk!=0] /
+                   abs(fprop.Fk_vols_total[fprop.Nk!=0])))
         if ctes.MUSCL: CFL = delta_t * np.max(abs(wave_velocity))
-        #CFL_wells = delta_t * 1 / np.nanmin((fprop.component_mole_numbers[wells['ws_inj']] /
+        #CFL_wells = delta_t * 1 / np.nanmin((fprop.Nk[wells['ws_inj']] /
         #           abs(fprop.component_flux_vols_total[wells['ws_inj']])))
         if (CFL > CFL_p): delta_t = delta_t / 2
-        #delta_tcfl = np.nanmin(CFL * (fprop.component_mole_numbers) / fprop.component_flux_vols_total, axis = 1) #make nan
+        #delta_tcfl = np.nanmin(CFL * (fprop.Nk) / fprop.component_flux_vols_total, axis = 1) #make nan
         np.seterr(**old_settings)
         return delta_t
 
     def update_delta_tcfl(self, delta_t, fprop):
          CFL = data_loaded['compositional_data']['CFL']
          old_settings = np.seterr(all = 'ignore', divide = 'ignore')
-         delta_tcfl = CFL * np.nanmin(abs(fprop.component_mole_numbers) /
+         delta_tcfl = CFL * np.nanmin(abs(fprop.Nk) /
                     abs(fprop.component_flux_vols_total)) #make nan
          np.seterr(**old_settings)
          return delta_tcfl
@@ -52,8 +52,8 @@ class delta_time:
 
     def update_delta_tn(self, delta_t, fprop, deltaNlim):
         old_settings = np.seterr(all = 'ignore', divide = 'ignore')
-        deltaNmax = max(np.nanmax(np.abs(fprop.component_mole_numbers - self.component_mole_numbers)
-                        / fprop.component_mole_numbers, axis =1))
+        deltaNmax = max(np.nanmax(np.abs(fprop.Nk - self.Nk)
+                        / fprop.Nk, axis =1))
 
         delta_tn = delta_t * deltaNlim / deltaNmax
         np.seterr(**old_settings)

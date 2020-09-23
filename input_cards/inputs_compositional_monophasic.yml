@@ -29,6 +29,10 @@ monophasic_data:
 # Case 3 of Li M.Sc. Thesis with case studies
 compositional_data:
   CFL: 0.5
+  MUSCL:
+    set: False
+    DW: False
+    LLF: False
   #  Pensar em um jeito de reorganizar isso
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [0.1, 0.10001, 0.10002, 0.10003, 0.10004, 0.5]

@@ -1,5 +1,4 @@
 import numpy as np
-from cmath import acos
 from ..utils import constants as ctes
 from scipy import linalg
 from ..solvers.EOS_solver.solver import CubicRoots
@@ -70,10 +69,10 @@ class PengRobinson:
 
     def get_all_derivatives(self, fprop):
 
-        x = fprop.component_molar_fractions[0:ctes.Nc,0,:]
-        y = fprop.component_molar_fractions[0:ctes.Nc,1,:]
-        Nl = fprop.phase_mole_numbers[0,0,:]
-        Nv = fprop.phase_mole_numbers[0,1,:]
+        x = fprop.xkj[0:ctes.Nc,0,:]
+        y = fprop.xkj[0:ctes.Nc,1,:]
+        Nl = fprop.Nj[0,0,:]
+        Nv = fprop.Nj[0,1,:]
         P = fprop.P
         T = fprop.T
 

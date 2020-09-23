@@ -4,54 +4,55 @@ from ..utils import constants as ctes
 from .stability_check import StabilityCheck
 from .properties_calculation import PropertiesCalc
 import scipy.sparse as sp
-from scipy import linalg
-from scipy import interpolate
-import scipy.linalg as la
 
 class FOUM:
+    """ Class created for computing flux accondingly to the First Order Upwind \
+    Method"""
+    def update_flux(self, fprop, Ft_internal_faces, rho_j_internal_faces, mobilities_internal_faces):
+        self.update_Fj_internal_faces(Ft_internal_faces,
+        rho_j_internal_faces, mobilities_internal_faces, fprop.Pcap[:,ctes.v0],
+        ctes.z[ctes.v0], ctes.pretransmissibility_internal_faces)
+        Fk_internal_faces = self.update_Fk_internal_faces(
+        fprop.xkj_internal_faces,fprop.Csi_j_internal_faces)
+        self.update_flux_volumes(fprop, Fk_internal_faces)
 
-    def update_flux(self, fprop, total_flux_internal_faces, phase_densities_internal_faces, mobilities_internal_faces):
-        self.update_phase_flux_internal_faces(total_flux_internal_faces, phase_densities_internal_faces,
-        mobilities_internal_faces, fprop.Pcap[:,ctes.v0], ctes.z[ctes.v0], ctes.pretransmissibility_internal_faces)
-        component_flux_internal_faces = self.update_component_flux_internal_faces(
-        fprop.component_molar_fractions_internal_faces,fprop.phase_molar_densities_internal_faces)
-        self.update_flux_volumes(fprop, component_flux_internal_faces)
+    def update_Fj_internal_faces(self, Ft_internal_faces, rho_j_internal_faces,
+        mobilities_internal_faces, Pcap_face, z_face,
+        pretransmissibility_internal_faces):
 
-    def update_phase_flux_internal_faces(self, total_flux_internal_faces, phase_densities_internal_faces,
-        mobilities_internal_faces, Pcap_face, z_face, pretransmissibility_internal_faces):
+        frj = mobilities_internal_faces[0,...] / \
+        np.sum(mobilities_internal_faces[0,...], axis = 0)
 
-        frj = mobilities_internal_faces[0,...] / np.sum(mobilities_internal_faces[0,...], axis = 0)
+        self.Fj_internal_faces = frj[np.newaxis,...] * (Ft_internal_faces +
+        pretransmissibility_internal_faces * (np.sum(mobilities_internal_faces *
+        (Pcap_face[:,:,1] - Pcap_face[:,:,0] - ctes.g * rho_j_internal_faces *
+        (z_face[:,1] - z_face[:,0])), axis=1) - np.sum(mobilities_internal_faces,
+        axis=1) * (Pcap_face[:,:,1] - Pcap_face[:,:,0] - ctes.g *
+        rho_j_internal_faces * (z_face[:,1] - z_face[:,0]))))
+        # M.flux_faces[M.faces.internal] = Ft_internal_faces * M.faces.normal[M.faces.internal].T
 
-        self.phase_flux_internal_faces = frj[np.newaxis,...] * (total_flux_internal_faces +
-                                        pretransmissibility_internal_faces * (np.sum(mobilities_internal_faces *
-                                        (Pcap_face[:,:,1] - Pcap_face[:,:,0] - ctes.g *
-                                        phase_densities_internal_faces * (z_face[:,1] - z_face[:,0])), axis=1) - \
-                                        np.sum(mobilities_internal_faces, axis=1) * (Pcap_face[:,:,1] -
-                                        Pcap_face[:,:,0] - ctes.g *phase_densities_internal_faces * \
-                                        (z_face[:,1] - z_face[:,0]))))
-        # M.flux_faces[M.faces.internal] = total_flux_internal_faces * M.faces.normal[M.faces.internal].T
+    def update_Fk_internal_faces(self, xkj_internal_faces, Csi_j_internal_faces):
+        Fk_internal_faces = np.sum(xkj_internal_faces * Csi_j_internal_faces *
+        self.Fj_internal_faces, axis = 1)
+        return Fk_internal_faces
 
-    def update_component_flux_internal_faces(self, component_molar_fractions_internal_faces, phase_molar_densities_internal_faces):
-        component_flux_internal_faces = np.sum(component_molar_fractions_internal_faces * phase_molar_densities_internal_faces *
-                                self.phase_flux_internal_faces, axis = 1)
-        return component_flux_internal_faces
-
-    def update_flux_volumes(self, fprop, component_flux_internal_faces):
+    def update_flux_volumes(self, fprop, Fk_internal_faces):
         cx = np.arange(ctes.n_components)
         lines = np.array([np.repeat(cx,len(ctes.v0[:,0])), np.repeat(cx,len(ctes.v0[:,1]))]).astype(int).flatten()
         cols = np.array([np.tile(ctes.v0[:,0],ctes.n_components), np.tile(ctes.v0[:,1], ctes.n_components)]).flatten()
-        data = np.array([-component_flux_internal_faces, component_flux_internal_faces]).flatten()
-        fprop.component_flux_vols_total = sp.csc_matrix((data, (lines, cols)), shape = (ctes.n_components, ctes.n_volumes)).toarray()
+        data = np.array([-Fk_internal_faces, Fk_internal_faces]).flatten()
+        fprop.Fk_vols_total = sp.csc_matrix((data, (lines, cols)), shape = (ctes.n_components, ctes.n_volumes)).toarray()
 
 
 class MUSCL:
 
-    """Class created for the second order MUSCL implementation for the calculation of the advective terms"""
+    """ Class created for the second order MUSCL implementation for the \
+    calculation of the advective terms """
 
     def run(self, M, fprop, wells, P_old, ftot):
-        self.total_flux_internal_faces = ftot
+        self.Ft_internal_faces = ftot
         self.P_face = np.sum(P_old[ctes.v0], axis=1) * 0.5
-        #self.fk_vols = fprop.component_flux_vols_total
+        #self.fk_vols = fprop.Fk_vols_total
         dNk_vols = self.volume_gradient_reconstruction(M, fprop, wells)
         dNk_face, dNk_face_neig = self.get_faces_gradient(M, fprop, dNk_vols)
         phi = self.Van_Leer_slope_limiter(dNk_face, dNk_face_neig); self.phi = phi
@@ -73,7 +74,7 @@ class MUSCL:
         all_neig2 = all_neig + np.identity(ctes.n_volumes)
         allneig2 = all_neig2.astype(int)
 
-        Nk_neig =  fprop.component_mole_numbers[:,np.newaxis,:] * all_neig2[np.newaxis,:,:]
+        Nk_neig =  fprop.Nk[:,np.newaxis,:] * all_neig2[np.newaxis,:,:]
         Nk = Nk_neig.transpose(0,2,1)
         pos_neig = M.data['centroid_volumes'].T[:,np.newaxis,:] * all_neig2[np.newaxis,:,:]
         pos = pos_neig.transpose(0,2,1)
@@ -100,7 +101,7 @@ class MUSCL:
         return dNkds_vols
 
     def get_faces_gradient(self, M, fprop, dNkds_vols):
-        dNk_face =  fprop.component_mole_numbers[:,ctes.v0[:,1]] - fprop.component_mole_numbers[:,ctes.v0[:,0]]
+        dNk_face =  fprop.Nk[:,ctes.v0[:,1]] - fprop.Nk[:,ctes.v0[:,0]]
         ds_face = M.data['centroid_volumes'][ctes.v0[:,1],:] -  M.data['centroid_volumes'][ctes.v0[:,0],:]
         dNk_face_vols = 2. * (dNkds_vols[:,:,ctes.v0] * ds_face.T[np.newaxis,:,:,np.newaxis]).sum(axis=1)
         dNk_face_neig = dNk_face_vols - dNk_face[:,:,np.newaxis]
@@ -116,7 +117,7 @@ class MUSCL:
         return phi
 
     def get_extrapolated_compositions(self, fprop, phi, dNk_face_neig):
-        Nk_face = fprop.component_mole_numbers[:,ctes.v0] + phi / 2 * dNk_face_neig
+        Nk_face = fprop.Nk[:,ctes.v0] + phi / 2 * dNk_face_neig
         z_face = Nk_face[0:ctes.Nc] / np.sum(Nk_face[0:ctes.Nc], axis = 0)
         return Nk_face, z_face
 
@@ -128,43 +129,43 @@ class MUSCL:
         Sg_face = np.empty((len(z_face[0,:]), v))
         ksi_W_face = np.empty_like(Sw_face)
         rho_W_face = np.empty_like(Sw_face)
-        component_molar_fractions_face = np.empty((ctes.n_components, ctes.n_phases, len(z_face[0,:]), v))
-        phase_molar_densities_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
-        phase_densities_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
+        xkj_face = np.empty((ctes.n_components, ctes.n_phases, len(z_face[0,:]), v))
+        Csi_j_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
+        rho_j_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
         mobilities_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
 
         for i in range(0,v):
 
             if ctes.compressible_k:
-                L_face[:,i], V_face[:,i], component_molar_fractions_face[0:ctes.Nc,0,:,i], \
-                component_molar_fractions_face[0:ctes.Nc,1,:,i], phase_molar_densities_face[:,0,:,i], \
-                phase_molar_densities_face[:,1,:,i], phase_densities_face[:,0,:,i], \
-                phase_densities_face[:,1,:,i]  =  StabilityCheck(fprop, P_face).run(fprop, P_face, \
-                                                                L_face[:,i], V_face[:,i], z_face[:,:,i])
+                L_face[:,i], V_face[:,i], xkj_face[0:ctes.Nc,0,:,i], \
+                xkj_face[0:ctes.Nc,1,:,i], Csi_j_face[:,0,:,i], \
+                Csi_j_face[:,1,:,i], rho_j_face[:,0,:,i], \
+                rho_j_face[:,1,:,i]  =  StabilityCheck(fprop, P_face).run(fprop,
+                P_face, L_face[:,i], V_face[:,i], z_face[:,:,i])
             else:
-                L_face[:,i] = 1; V_face[:,i] = 0; component_molar_fractions_face[0:ctes.Nc,0:2,:,i] = 1
-                phase_densities_face[:,:,:,i] = fprop.phase_densities[:,:,ctes.v0[:,i]]
-                phase_molar_densities_face[:,:,:,i] = fprop.phase_molar_densities[:,:,ctes.v0[:,i]]
+                L_face[:,i] = 1; V_face[:,i] = 0; xkj_face[0:ctes.Nc,0:2,:,i] = 1
+                rho_j_face[:,:,:,i] = fprop.rho_j[:,:,ctes.v0[:,i]]
+                Csi_j_face[:,:,:,i] = fprop.Csi_j[:,:,ctes.v0[:,i]]
 
             if ctes.load_w:
-                component_molar_fractions_face[-1,-1,:,i] = 1
-                component_molar_fractions_face[-1,0:-1,:,i] = 0
-                component_molar_fractions_face[0:ctes.Nc,-1,:,i] = 0
+                xkj_face[-1,-1,:,i] = 1
+                xkj_face[-1,0:-1,:,i] = 0
+                xkj_face[0:ctes.Nc,-1,:,i] = 0
 
-                Sw_face[:,i], phase_molar_densities_face[0,-1,:,i], phase_densities_face[0,-1,:,i] = \
-                PropertiesCalc().update_water_saturation(fprop, Nk_face[-1,:,i], P_face, \
-                                                        Vp[:,i])
+                Sw_face[:,i], Csi_j_face[0,-1,:,i], rho_j_face[0,-1,:,i] = \
+                PropertiesCalc().update_water_saturation(fprop, Nk_face[-1,:,i],
+                P_face, Vp[:,i])
 
-            So_face[:,i], Sg_face[:,i] =  PropertiesCalc().update_saturations(Sw_face[:,i],
-                                phase_molar_densities_face[:,:,:,i], L_face[:,i], V_face[:,i])
-            mobilities_face[:,:,:,i] = PropertiesCalc().update_mobilities(fprop, So_face[:,i], Sg_face[:,i],
-                                        Sw_face[:,i], phase_molar_densities_face[:,:,:,i],
-                                        component_molar_fractions_face[:,:,:,i])
+            So_face[:,i], Sg_face[:,i] =  PropertiesCalc().update_saturations(
+            Sw_face[:,i], Csi_j_face[:,:,:,i], L_face[:,i], V_face[:,i])
+            mobilities_face[:,:,:,i] = PropertiesCalc().update_mobilities(fprop,
+            So_face[:,i], Sg_face[:,i], Sw_face[:,i], Csi_j_face[:,:,:,i],
+            xkj_face[:,:,:,i])
 
-        return mobilities_face, phase_densities_face, phase_molar_densities_face, component_molar_fractions_face
+        return mobilities_face, rho_j_face, Csi_j_face, xkj_face
 
     def update_gravity_term(self):
-        G = ctes.g * self.phase_densities_face * ctes.z[ctes.v0]
+        G = ctes.g * self.rho_j_face * ctes.z[ctes.v0]
         return G
 
     '''def flux_calculation_conditions_Serna(self, alpha, d2FkdNk):
@@ -205,11 +206,11 @@ class MUSCL:
             except: self.faces_contour[i] = np.argwhere(ctes.v0[:,1] == vols_contour[i]).flatten()
 
     def update_flux(self, M, fprop, Nk_face):
-        component_flux_internal_faces = np.empty((ctes.n_components,ctes.n_internal_faces))
+        Fk_internal_faces = np.empty((ctes.n_components,ctes.n_internal_faces))
         alpha_wv = np.empty((ctes.n_components, ctes.n_internal_faces,5))
         LLF = data_loaded['compositional_data']['MUSCL']['LLF']
         DW = data_loaded['compositional_data']['MUSCL']['DW']
-        Fk_face = self.get_component_flux_face(fprop, M, Nk_face)
+        Fk_face = self.get_Fk_face(fprop, M, Nk_face)
         ponteiro= np.zeros(ctes.n_internal_faces,dtype=bool)
         if LLF:
             #LR_eigval, d2FkdNk_eigval = self.get_LR_eigenvalues_Serna(M, fprop, Nk_face)
@@ -218,58 +219,55 @@ class MUSCL:
             #ponteiro = self.flux_calculation_conditions(LR_eigval)
             #import pdb; pdb.set_trace()
             alpha = self.wave_velocity_LLF(M, fprop, Nk_face, np.copy(~ponteiro))
-            component_flux_internal_faces[:,~ponteiro], alpha_wv[:,~ponteiro,:] = self.update_flux_LLF(Fk_face[:,~ponteiro,:],
-                                                    Nk_face[:,~ponteiro,:], alpha)
+            Fk_internal_faces[:,~ponteiro], alpha_wv[:,~ponteiro,:] = \
+            self.update_flux_LLF(Fk_face[:,~ponteiro,:], Nk_face[:,~ponteiro,:],
+            alpha)
         if DW:
             Fk_face, alpha = self.wave_velocity_DW(M, fprop, Nk_face)
-            component_flux_internal_faces[:,~ponteiro], alpha_wv = self.update_flux_DW(Fk_face[:,~ponteiro,:],
-                                                    Nk_face[:,~ponteiro,:], alpha[:,~ponteiro])
+            Fk_internal_faces[:,~ponteiro], alpha_wv = \
+            self.update_flux_DW(Fk_face[:,~ponteiro,:], Nk_face[:,~ponteiro,:],
+            alpha[:,~ponteiro])
 
         if any(ponteiro):
             alpha_wv[:,ponteiro,:] = 0
             #alpha_wv[:,ponteiro,0:2] = LR_eigval[:,ponteiro]
-            component_flux_internal_faces[:,ponteiro] = self.update_flux_upwind(fprop,
+            Fk_internal_faces[:,ponteiro] = self.update_flux_upwind(fprop,
                                                 Fk_face[:,ponteiro,:], np.copy(ponteiro))
-        #import pdb; pdb.set_trace()
-        FOUM().update_flux_volumes(fprop, component_flux_internal_faces)
-
-        #if fprop.Sw[0]>0.4:import pdb; pdb.set_trace()
+        FOUM().update_flux_volumes(fprop, Fk_internal_faces)
         return alpha_wv
 
     def Fk_Nk(self, fprop, M, Nk, ponteiro):
         z = Nk[0:ctes.Nc] / np.sum(Nk[0:ctes.Nc], axis = 0)
         Nk = Nk[:,:,np.newaxis]
         z = z[:,:,np.newaxis]
-        mobilities, phase_densities, phase_molar_densities, \
-        component_molar_fractions = self.get_extrapolated_properties(fprop,
-                                                        M, Nk, z,self.P_face[ponteiro],
-                                                        fprop.Vp[ctes.v0][ponteiro],v=1)
-        ftotal = self.total_flux_internal_faces[:,ponteiro]
+        mobilities, rho_j, Csi_j, \
+        xkj = self.get_extrapolated_properties(fprop, M, Nk, z,
+        self.P_face[ponteiro], fprop.Vp[ctes.v0][ponteiro], v = 1)
+        ftotal = self.Ft_internal_faces[:,ponteiro]
 
         f = FOUM()
 
-        f.update_phase_flux_internal_faces(ftotal,
-                    phase_densities[:,:,:,0], mobilities[:,:,:,0],
-                    fprop.Pcap[:,ctes.v0][:,ponteiro], ctes.z[ctes.v0][ponteiro],
-                    ctes.pretransmissibility_internal_faces[ponteiro])
-        Fk = f.update_component_flux_internal_faces(component_molar_fractions[:,:,:,0],
-                         phase_molar_densities[:,:,:,0])
+        f.update_Fj_internal_faces(ftotal, rho_j[:,:,:,0], mobilities[:,:,:,0],
+        fprop.Pcap[:,ctes.v0][:,ponteiro], ctes.z[ctes.v0][ponteiro],
+        ctes.pretransmissibility_internal_faces[ponteiro])
+        Fk = f.update_Fk_internal_faces(xkj[:,:,:,0], Csi_j[:,:,:,0])
         return Fk
 
     def dFk_dNk(self, fprop, M, Nk_face, delta, k, ponteiro):
         Nk_face_plus = np.copy(Nk_face)
         Nk_face_minus = np.copy(Nk_face)
-        Nk_face_plus[k] += delta*0.5
-        Nk_face_minus[k] -= delta*0.5
-        dFkdNk = ((self.Fk_Nk(fprop, M, Nk_face_plus, np.ones(ctes.n_internal_faces, dtype=bool)) -
-                                self.Fk_Nk(fprop, M, Nk_face_minus, np.ones(ctes.n_internal_faces, dtype=bool)))\
-                                /(Nk_face_plus[k]-Nk_face_minus[k]))
+        Nk_face_plus[k] += delta * 0.5
+        Nk_face_minus[k] -= delta * 0.5
+        dFkdNk = (self.Fk_Nk(fprop, M, Nk_face_plus, np.ones(ctes.n_internal_faces, dtype=bool)) -
+        self.Fk_Nk(fprop, M, Nk_face_minus, np.ones(ctes.n_internal_faces, dtype=bool)))\
+        /(Nk_face_plus[k]-Nk_face_minus[k])
         return dFkdNk
 
-    def get_component_flux_face(self, fprop, M, Nk_face):
+    def get_Fk_face(self, fprop, M, Nk_face):
         Fk_face = np.empty((ctes.n_components,ctes.n_internal_faces, 2))
         for i in range(2):
-            Fk_face[:,:,i] = self.Fk_Nk(fprop, M, Nk_face[:,:,i], np.ones(ctes.n_internal_faces,dtype=bool))
+            Fk_face[:,:,i] = self.Fk_Nk(fprop, M, Nk_face[:,:,i],
+            np.ones(ctes.n_internal_faces,dtype=bool))
         return Fk_face
 
     '''def get_LR_eigenvalues_Serna(self, M, fprop, Nk_face):
@@ -385,11 +383,11 @@ class MUSCL:
 
         for i in range(2):
             f = FOUM()
-            f.update_phase_flux_internal_faces(self.total_flux_internal_faces,
-                        self.phase_densities_face[:,:,:,i], self.mobilities_face[:,:,:,i],
+            f.update_Fj_internal_faces(self.Ft_internal_faces,
+                        self.rho_j_face[:,:,:,i], self.mobilities_face[:,:,:,i],
                         fprop.Pcap[:,ctes.v0], ctes.z[ctes.v0], ctes.pretransmissibility_internal_faces)
-            Fk_face[:,:,i] = f.update_component_flux_internal_faces(self.component_molar_fractions_face[:,:,:,i],
-                             self.phase_molar_densities_face[:,:,:,i])
+            Fk_face[:,:,i] = f.update_Fk_internal_faces(self.xkj_face[:,:,:,i],
+                             self.Csi_j_face[:,:,:,i])
             if i==0:
                 for k in range(ctes.n_components):
 

@@ -2,7 +2,7 @@ import numpy as np
 from ..directories import data_loaded
 from ..compositional import equation_of_state
 
-def init(M):
+def init(M, wells):
     global n_volumes
     global v0
     global internal_faces
@@ -17,6 +17,8 @@ def init(M):
     global R
     global EOS_class
     global MUSCL
+    global bhp_ind
+
     EOS_class = getattr(equation_of_state, data_loaded['compositional_data']['equation_of_state'])
     MUSCL = data_loaded['compositional_data']['MUSCL']['set']
     Pf = np.array(data_loaded['compositional_data']['Pf']).astype(float)
@@ -32,6 +34,10 @@ def init(M):
     z = -M.data['centroid_volumes'][:,2]
     pretransmissibility_faces = M.data[M.data.variables_impress['pretransmissibility']]
     pretransmissibility_internal_faces = pretransmissibility_faces[ M.faces.internal]#[100]*np.ones(len(self.internal_faces))
+    if len(wells['ws_p'])>1:
+        bhp_ind = np.argwhere(M.volumes.center[wells['ws_p']][:,2] ==
+        min(M.volumes.center[wells['ws_p']][:,2])).ravel()
+    else: bhp_ind = wells['ws_p']
 
 def component_properties():
     global load_k

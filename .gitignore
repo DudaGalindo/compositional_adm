@@ -22,13 +22,15 @@
 !const_definitions.txt
 *.csv
 *.png
+*.eps
 *_tt.py
 impress/
 impress(copia)/
+cases_plots/
 *.pyc
 *.imp
 .idea/
-*__pycache__
-
+*_0_0.py
+__pycache__
 
 *gmsh
