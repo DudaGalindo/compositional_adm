@@ -31,11 +31,11 @@ class FluidProperties:
         self.update_initial_porous_volume()
         self.P = self.P * np.ones(ctes.n_volumes)
         self.P[wells['ws_p']] = wells['values_p']
-        self.L = np.empty(len(self.P))
-        self.V = np.empty(len(self.P))
         if ctes.load_k:
             self.z = np.array([data_loaded['compositional_data']['component_data']['z']]).astype(float).T
             self.z = self.z * np.ones(ctes.n_volumes)
+            self.L = np.empty(len(self.P))
+            self.V = np.empty(len(self.P))
         else: z = []
 
     def update_initial_porous_volume(self):
@@ -48,7 +48,7 @@ class FluidProperties:
                             #coef_vc7[2] * np.mean([ctes.SG[ctes.C7 == 1]]) + coef_vc7[3] \
                             #* np.mean(ctes.Mw[ctes.C7 == 1]) * np.mean([ctes.SG[ctes.C7 == 1]])
     '''
-    
+
     def inputs_water_properties(self, M):
         self.rho_j[0,ctes.n_phases-1,:] = data_loaded['compositional_data']['water_data']['rho_W']
         self.Csi_W0 = self.rho_j[0,ctes.n_phases-1,:] / ctes.Mw_w

@@ -21,11 +21,11 @@ class PropertiesCalc:
         if ctes.load_w:
             self.set_water_properties(M, fprop)
         fprop.So, fprop.Sg = self.update_saturations(M.data['saturation'],
-                                        fprop.Csi_j, fprop.L, fprop.V)
+                            fprop.Csi_j, fprop.L, fprop.V)
         self.set_initial_volume(fprop)
         self.set_initial_mole_numbers(fprop)
         fprop.mobilities = self.update_mobilities(fprop, fprop.So, fprop.Sg, fprop.Sw,
-                         fprop.Csi_j, fprop.xkj)
+                          fprop.Csi_j, fprop.xkj)
         self.update_capillary_pressure(fprop)
 
     def run_inside_loop(self, M, fprop):
@@ -37,9 +37,9 @@ class PropertiesCalc:
         self.update_mole_numbers(fprop)
         self.update_total_volume(fprop)
         fprop.So, fprop.Sg = self.update_saturations(M.data['saturation'],
-                                        fprop.Csi_j, fprop.L, fprop.V)
+                            fprop.Csi_j, fprop.L, fprop.V)
         fprop.mobilities = self.update_mobilities(fprop, fprop.So, fprop.Sg, fprop.Sw,
-                         fprop.Csi_j, fprop.xkj)
+                          fprop.Csi_j, fprop.xkj)
         self.update_capillary_pressure(fprop)
 
     def set_water_properties(self, M, fprop):

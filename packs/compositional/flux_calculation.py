@@ -7,18 +7,24 @@ import scipy.sparse as sp
 
 class FOUM:
     """ Class created for computing flux accondingly to the First Order Upwind \
-    Method"""
+    Method """
+
     def update_flux(self, fprop, Ft_internal_faces, rho_j_internal_faces, mobilities_internal_faces):
+        ''' ~Global~ function that calls others '''
+
         self.update_Fj_internal_faces(Ft_internal_faces,
         rho_j_internal_faces, mobilities_internal_faces, fprop.Pcap[:,ctes.v0],
         ctes.z[ctes.v0], ctes.pretransmissibility_internal_faces)
+
         Fk_internal_faces = self.update_Fk_internal_faces(
         fprop.xkj_internal_faces,fprop.Csi_j_internal_faces)
+
         self.update_flux_volumes(fprop, Fk_internal_faces)
 
     def update_Fj_internal_faces(self, Ft_internal_faces, rho_j_internal_faces,
         mobilities_internal_faces, Pcap_face, z_face,
         pretransmissibility_internal_faces):
+        ''' Function to calculate phase flux '''
 
         frj = mobilities_internal_faces[0,...] / \
         np.sum(mobilities_internal_faces[0,...], axis = 0)
@@ -32,11 +38,16 @@ class FOUM:
         # M.flux_faces[M.faces.internal] = Ft_internal_faces * M.faces.normal[M.faces.internal].T
 
     def update_Fk_internal_faces(self, xkj_internal_faces, Csi_j_internal_faces):
+        ''' Function to compute component flux '''
+
         Fk_internal_faces = np.sum(xkj_internal_faces * Csi_j_internal_faces *
         self.Fj_internal_faces, axis = 1)
         return Fk_internal_faces
 
     def update_flux_volumes(self, fprop, Fk_internal_faces):
+        ''' Function to compute component flux balance through the control \
+        volume interfaces'''
+
         cx = np.arange(ctes.n_components)
         lines = np.array([np.repeat(cx,len(ctes.v0[:,0])), np.repeat(cx,len(ctes.v0[:,1]))]).astype(int).flatten()
         cols = np.array([np.tile(ctes.v0[:,0],ctes.n_components), np.tile(ctes.v0[:,1], ctes.n_components)]).flatten()
@@ -50,14 +61,15 @@ class MUSCL:
     calculation of the advective terms """
 
     def run(self, M, fprop, wells, P_old, ftot):
+        ''' Global function that calls others '''
+
         self.Ft_internal_faces = ftot
         self.P_face = np.sum(P_old[ctes.v0], axis=1) * 0.5
-        #self.fk_vols = fprop.Fk_vols_total
         dNk_vols = self.volume_gradient_reconstruction(M, fprop, wells)
         dNk_face, dNk_face_neig = self.get_faces_gradient(M, fprop, dNk_vols)
         phi = self.Van_Leer_slope_limiter(dNk_face, dNk_face_neig); self.phi = phi
         Nk_face, z_face = self.get_extrapolated_compositions(fprop, phi, dNk_face_neig)
-        #G = self.update_gravity_term()
+        #G = self.update_gravity_term() # for now, it has no gravity
         alpha = self.update_flux(M, fprop, Nk_face)
         return alpha
 
@@ -95,9 +107,9 @@ class MUSCL:
         dNkds_vols = np.copy(dNk_vols)
         dNkds_vols[:,ds_vols!=0] = dNk_vols[:,ds_vols != 0] / ds_vols[ds_vols != 0][np.newaxis,:]
         self.all_neig = all_neig.sum(axis=1)
-        self.identify_contour_faces()
+        faces_contour = self.identify_contour_faces()
         #dNkds_vols[:,:,all_neig.sum(axis=1)==1] = 0 #*dNkds_vols[:,:,all_neig.sum(axis=1)==1]
-        dNkds_vols[:,:,ctes.v0[self.faces_contour].flatten()] = 0
+        dNkds_vols[:,:,ctes.v0[faces_contour].flatten()] = 0 # zero in the contour volumes
         return dNkds_vols
 
     def get_faces_gradient(self, M, fprop, dNkds_vols):
@@ -133,6 +145,9 @@ class MUSCL:
         Csi_j_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
         rho_j_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
         mobilities_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
+
+        ''' Flash calculations and properties calculations at each side of the \
+        interface '''
 
         for i in range(0,v):
 
@@ -199,11 +214,12 @@ class MUSCL:
 
     def identify_contour_faces(self):
         vols_contour = np.argwhere(self.all_neig==1).flatten()
-        self.faces_contour = np.empty_like(vols_contour)
+        faces_contour = np.empty_like(vols_contour)
 
         for i in range(len(vols_contour)):
-            try: self.faces_contour[i] = np.argwhere(ctes.v0[:,0] == vols_contour[i]).flatten()
-            except: self.faces_contour[i] = np.argwhere(ctes.v0[:,1] == vols_contour[i]).flatten()
+            try: faces_contour[i] = np.argwhere(ctes.v0[:,0] == vols_contour[i]).flatten()
+            except: faces_contour[i] = np.argwhere(ctes.v0[:,1] == vols_contour[i]).flatten()
+        return faces_contour
 
     def update_flux(self, M, fprop, Nk_face):
         Fk_internal_faces = np.empty((ctes.n_components,ctes.n_internal_faces))
@@ -233,10 +249,16 @@ class MUSCL:
             #alpha_wv[:,ponteiro,0:2] = LR_eigval[:,ponteiro]
             Fk_internal_faces[:,ponteiro] = self.update_flux_upwind(fprop,
                                                 Fk_face[:,ponteiro,:], np.copy(ponteiro))
+
+        '-------- Perform volume balance to obtain flux through volumes -------'
+
         FOUM().update_flux_volumes(fprop, Fk_internal_faces)
+
         return alpha_wv
 
     def Fk_Nk(self, fprop, M, Nk, ponteiro):
+        ''' Function to compute component flux based on a given composition (Nk) '''
+
         z = Nk[0:ctes.Nc] / np.sum(Nk[0:ctes.Nc], axis = 0)
         Nk = Nk[:,:,np.newaxis]
         z = z[:,:,np.newaxis]
@@ -246,7 +268,6 @@ class MUSCL:
         ftotal = self.Ft_internal_faces[:,ponteiro]
 
         f = FOUM()
-
         f.update_Fj_internal_faces(ftotal, rho_j[:,:,:,0], mobilities[:,:,:,0],
         fprop.Pcap[:,ctes.v0][:,ponteiro], ctes.z[ctes.v0][ponteiro],
         ctes.pretransmissibility_internal_faces[ponteiro])
@@ -264,10 +285,13 @@ class MUSCL:
         return dFkdNk
 
     def get_Fk_face(self, fprop, M, Nk_face):
+        ''' Function that computes the flux in each face side (Left and Right)'''
+
         Fk_face = np.empty((ctes.n_components,ctes.n_internal_faces, 2))
         for i in range(2):
             Fk_face[:,:,i] = self.Fk_Nk(fprop, M, Nk_face[:,:,i],
             np.ones(ctes.n_internal_faces,dtype=bool))
+
         return Fk_face
 
     '''def get_LR_eigenvalues_Serna(self, M, fprop, Nk_face):
@@ -320,7 +344,6 @@ class MUSCL:
         delta = 0.001
         dFkdNk = np.empty((ctes.n_internal_faces, ctes.n_components, ctes.n_components))
         dFkdNk_eigvalue = np.empty((ctes.n_components,ctes.n_internal_faces, 2))
-
         dFkdNk_gauss = np.empty((len(ponteiro[ponteiro]), ctes.n_components, ctes.n_components))
         dFkdNk_m = np.empty((len(ponteiro[ponteiro]), ctes.n_components, ctes.n_components))
         dFkdNk_gauss_eigvalue = np.empty((ctes.n_components,len(ponteiro[ponteiro]), 2))

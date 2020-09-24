@@ -9,7 +9,8 @@ class delta_time:
         self.Sg = fprop.Sg
         self.Sw = fprop.Sw
         self.Nk = fprop.Nk
-        #the initialization of this class is made in a different time step evaluation
+        'the initialization of this class is made in a different time step \
+        evaluation'
 
     def update_CFL(delta_t, wells, fprop, wave_velocity):
         CFL_p = data_loaded['compositional_data']['CFL']
@@ -68,7 +69,6 @@ class delta_time:
 
     def update_delta_t(self, delta_t, fprop, load_k, loop):
 
-        """ the limit parameters would be given as data entry -its different for each simulation """
         deltaPlim = data_loaded['compositional_data']['time_data']['deltaPlim']
         deltaSlim = data_loaded['compositional_data']['time_data']['deltaSlim']
         deltaNlim = data_loaded['compositional_data']['time_data']['deltaNlim']
@@ -81,6 +81,8 @@ class delta_time:
         delta_tn = self.update_delta_tn(delta_t, fprop, deltaNlim)
         delta_tv = self.update_delta_tv(delta_t, fprop, deltaVlim)
 
+        'If only water present, the time-step calculation follows the CFL criteria\
+        Else, it follows the compositional regular criteria'
         if ctes.Cw == 0 and not load_k: delta_t = self.update_delta_tcfl(delta_t, fprop)
         else: delta_t = min(delta_tp, delta_ts, delta_tn, delta_tv)
 

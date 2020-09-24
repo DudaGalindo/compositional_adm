@@ -57,10 +57,10 @@ class PengRobinson:
 
     def lnphi_calculation(self, A, B, Z):
         lnphi = self.b[:,np.newaxis] / self.bm[np.newaxis,:] * (Z[np.newaxis,:] - 1) - \
-                np.log(abs(Z[np.newaxis,:] - B[np.newaxis,:])) - A[np.newaxis,:] / (2 * (2
-                ** (1/2)) * B[np.newaxis,:]) * (2 * self.psi / self.aalpha[np.newaxis,:] - \
-                self.b[:,np.newaxis] / self.bm[np.newaxis,:]) * np.log((Z[np.newaxis,:] + (1 +
-                2 ** (1/2)) * B[np.newaxis,:]) / (Z[np.newaxis,:] + (1 - 2 ** (1/2)) * B[np.newaxis,:]))
+        np.log(abs(Z[np.newaxis,:] - B[np.newaxis,:])) - A[np.newaxis,:] / (2 * (2
+        ** (1/2)) * B[np.newaxis,:]) * (2 * self.psi / self.aalpha[np.newaxis,:] - \
+        self.b[:,np.newaxis] / self.bm[np.newaxis,:]) * np.log((Z[np.newaxis,:] + (1 +
+        2 ** (1/2)) * B[np.newaxis,:]) / (Z[np.newaxis,:] + (1 - 2 ** (1/2)) * B[np.newaxis,:]))
 
         return lnphi
 
@@ -75,14 +75,6 @@ class PengRobinson:
         Nv = fprop.Nj[0,1,:]
         P = fprop.P
         T = fprop.T
-
-        # Testando isso ainda, mas basicamente é fazendo Vfases=Vtotal (+-forçante)
-        '''St = fprop.So + fprop.Sg
-        So = fprop.So / St
-        Sg = fprop.Sg / St
-        Nl = Nl/fprop.So * So
-        Nv[Sg>0] = Nv[Sg>0]/fprop.Sg[Sg>0] * Sg[Sg>0]
-        Nv[Sg==0] = 0'''
 
         dlnfildP, dlnfildnij, dZldP_parcial, dZldnij_parcial, Zl = \
                 self.get_phase_derivatives(P, T, x, Nl, np.ones(ctes.n_volumes))
@@ -113,7 +105,6 @@ class PengRobinson:
         dlnfijdP = self.dlnfij_dP(P, dlnphidP)
         dlnfijdnij = self.dlnfij_dnij(dlnphidnij, xij, Nj)
         return dlnfijdP, dlnfijdnij, dZdP_parcial, dZdnij_parcial, Z
-
 
     def da_dnij(self, Nj, xkj):
         dadnij = np.empty((ctes.Nc,ctes.n_volumes))

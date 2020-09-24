@@ -5,7 +5,7 @@ from packs.compositional.compositionalIMPEC import CompositionalFVM
 from packs.compositional.stability_check import StabilityCheck
 from packs.compositional.properties_calculation import PropertiesCalc
 from packs.compositional.update_time import delta_time
-from update_inputs_compositional import FluidProperties
+from inputs_compositional import FluidProperties
 from packs.utils import constants as ctes
 import os
 import numpy as np
@@ -30,7 +30,7 @@ class run_simulation:
         self.p1 = PropertiesCalc()
 
     def initialize(self, load, convert, mesh):
-        '''Function to initialize mesh (preprocess) get and compute initial mesh \
+        ''' Function to initialize mesh (preprocess) get and compute initial mesh \
         properties '''
         M, elements_lv0, data_impress, wells = initial_mesh(mesh, load=load, convert=convert)
         ctes.init(M, wells)
@@ -39,8 +39,13 @@ class run_simulation:
         return M, data_impress, wells, fprop, load
 
     def get_initial_properties(self, M, wells):
-        ''' get initial fluid - oil, gas and water data load and calculation'''
-        fprop = FluidProperties(wells)
+        ''' get initial fluid - oil, gas and water data and calculate initial \
+        properties'''
+
+        fprop = FluidProperties(wells) # load reservoir properties data and initialize other data
+
+        '------------------------- Perform initial flash ----------------------'
+
         if ctes.load_k:
             fprop.L, fprop.V, fprop.xkj[0:ctes.Nc, 0, :], \
             fprop.xkj[0:ctes.Nc, 1, :], fprop.Csi_j[:,0,:], \
@@ -48,33 +53,48 @@ class run_simulation:
             StabilityCheck(fprop, fprop.P).run(fprop, fprop.P, fprop.L, fprop.V, fprop.z)
             self.p2 = StabilityCheck(fprop, fprop.P)
         else: fprop.x = []; fprop.y = []
-        if ctes.load_w: fprop.inputs_water_properties(M)
+        if ctes.load_w: fprop.inputs_water_properties(M) #load water properties
+
+        '----------------------- Calculate fluid properties -------------------'
 
         self.p1.run_outside_loop(M, fprop)
+
         return fprop
 
     def run(self, M, wells, fprop, load):
+        ''' Function created to compute reservoir and fluid properties at each \
+        time step '''
+
         t0 = time.time()
         t_obj = delta_time(fprop) #get wanted properties in t=n
 
+        '---- Get pressure field and new time step (if the past time step does \
+        not obey the CFL condition) -------------------------------------------'
+
         self.delta_t = CompositionalFVM()(M, wells, fprop, self.delta_t)
-        import pdb; pdb.set_trace()
+
         self.t += self.delta_t
+
+        '----------------- Perform Phase stability test and flash -------------'
 
         if ctes.load_k and ctes.compressible_k:
             fprop.L, fprop.V, fprop.xkj[0:ctes.Nc, 0, :], \
             fprop.xkj[0:ctes.Nc, 1, :], fprop.Csi_j[:,0,:], \
             fprop.Csi_j[:,1,:], fprop.rho_j[:,0,:], fprop.rho_j[:,1,:]  =  \
             self.p2.run(fprop, fprop.P, fprop.L, fprop.V, fprop.z)
+
+        '----------------------- Update fluid properties ----------------------'
+
         self.p1.run_inside_loop(M, fprop)
-        #if self.t > 32405: import pdb; pdb.set_trace()
+
+        '-------------------- Advance in time and save results ----------------'
+
         self.update_vpi(fprop, wells)
         self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
         if len(wells['ws_p'])>0:self.update_production(fprop, wells)
         self.update_loop()
         t1 = time.time()
         dt = t1 - t0
-        # Talvez isso esteja antes de self.all_results dentro de update_current_compositional_results
         if self.use_vpi:
             if np.round(self.vpi,3) in self.vpi_save:
                 self.update_current_compositional_results(M, wells, fprop, dt) #ver quem vou salvar
@@ -83,9 +103,14 @@ class run_simulation:
                 self.update_current_compositional_results(M, wells, fprop, dt)
 
     def update_loop(self):
+        ''' Function to count how many loops it has been since the simulation \
+        started'''
+        
         self.loop += 1
 
     def update_vpi(self, fprop, wells):
+        ''' Function to update time in vpi units (volume poroso injetado)'''
+
         if len(wells['ws_inj'])>0:
             flux_vols_total = wells['values_q_vol']
             flux_total_inj = np.absolute(flux_vols_total)
@@ -94,18 +119,14 @@ class run_simulation:
         self.vpi = self.vpi + (flux_total_inj.sum())/sum(fprop.Vp)*self.delta_t
 
     def get_empty_current_compositional_results(self):
-
         return [np.array(['loop', 'vpi [s]', 'simulation_time [s]', 't [s]', 'pressure [Pa]', 'Sw', 'So', 'Sg',
                         'Oil_p', 'Gas_p', 'z', 'centroids'])]
 
     def update_production(self, fprop, wells):
-        self.oil_production +=  abs(fprop.q_phase[:,0,:].sum()) *self.delta_t
-        #abs(sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.L[wells['ws_prod']] / \
-                                #fprop.Csi_j[:,0,wells['ws_prod']]))
-        self.gas_production +=  abs(fprop.q_phase[:,1,:].sum())*self.delta_t
+        ''' Function to compute oil and gas production rate [m³/s] through time'''
 
-        #abs(sum(np.sum(fprop.q[:,wells['ws_prod']], axis = 0) * self.delta_t * fprop.V[wells['ws_prod']]  / \
-                                #fprop.Csi_j[:,1,wells['ws_prod']]))
+        self.oil_production +=  abs(fprop.q_phase[:,0,:].sum()) *self.delta_t
+        self.gas_production +=  abs(fprop.q_phase[:,1,:].sum())*self.delta_t
 
     def update_current_compositional_results(self, M, wells, fprop, simulation_time: float = 0.0):
 
@@ -113,8 +134,8 @@ class run_simulation:
         #total_flux_internal_faces_vector = fprop.total_flux_internal_faces.T * np.abs(M.faces.normal[M.faces.internal])
 
         self.current_compositional_results = np.array([self.loop, self.vpi, simulation_time,
-                    self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
-                    self.gas_production, fprop.z, M.data['centroid_volumes']])
+        self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
+        self.gas_production, fprop.z, M.data['centroid_volumes']])
         self.all_results.append(self.current_compositional_results)
 
     def export_current_compositional_results(self):

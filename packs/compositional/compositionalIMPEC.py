@@ -24,9 +24,11 @@ class CompositionalFVM:
                                      fprop.rho_j_internal_faces,
                                      fprop.mobilities_internal_faces)
                 wave_velocity = []
-            # For the composition calculation the time step might be different because it treats
-            #composition explicitly and this explicit models are conditionally stable - which can
-            #be based on the CFL parameter.
+            
+            ''' For the composition calculation the time step might be different\
+             because it treats composition explicitly and this explicit models \
+             are conditionally stable - which can be based on the CFL parameter '''
+
             delta_t_new = delta_time.update_CFL(delta_t, wells, fprop, wave_velocity)
             r = delta_t_new/delta_t
             delta_t = delta_t_new
@@ -75,8 +77,8 @@ class CompositionalFVM:
 
     def get_phase_densities_internal_faces(self, fprop):
         fprop.rho_j_internal_faces = (fprop.Vp[ctes.v0[:,0]] * fprop.rho_j[:,:,ctes.v0[:,0]] +
-                                                fprop.Vp[ctes.v0[:,1]] * fprop.rho_j[:,:,ctes.v0[:,1]]) /  \
-                                                (fprop.Vp[ctes.v0[:,0]] + fprop.Vp[ctes.v0[:,1]])
+                                    fprop.Vp[ctes.v0[:,1]] * fprop.rho_j[:,:,ctes.v0[:,1]]) /  \
+                                    (fprop.Vp[ctes.v0[:,0]] + fprop.Vp[ctes.v0[:,1]])
 
     def update_composition(self, fprop, delta_t):
         fprop.Nk = fprop.Nk + delta_t * (self.q + fprop.Fk_vols_total)
