@@ -1,7 +1,5 @@
-"""Check stability of a system and find its composition at a thermodynamic equilibrium."""
 import numpy as np
 from ..directories import data_loaded
-from scipy.misc import derivative
 from . import equation_of_state
 from ..utils import constants as ctes
 
@@ -10,15 +8,18 @@ from ..utils import constants as ctes
 # ph=0 - vapor. ph=1 - liquid.
 
 class StabilityCheck:
-    """Check for stability of a thermodynamic equilibrium and returns the
-    equilibrium phase compositions (perform the flash calculation)."""
+
+    """ Check for stability of a thermodynamic equilibrium and returns the
+    equilibrium phase compositions (perform the flash calculation) """
 
     def __init__(self, fprop, P):
+        # this is called once
         self.EOS = ctes.EOS_class(fprop.T) #só para os casos isotérmicos - non isothermal entrariam em run (eu acho)
         self.ph_L = np.ones(len(P), dtype = bool)
         self.ph_V = np.zeros(len(P), dtype = bool)
         self.Pv = np.array(data_loaded['compositional_data']['component_data']['Pv']).astype(float)
         self.Pv[fprop.T < ctes.Tc] = self.vapor_pressure_pure_substancies(fprop)
+        self.K = self.equilibrium_ratio_Wilson(P, fprop)
 
     def run(self, fprop, P, L, V, z):
         self.P = P
@@ -27,31 +28,31 @@ class StabilityCheck:
         self.z = z
         self.x = np.empty(z.shape)
         self.y = np.empty(z.shape)
-        self.equilibrium_ratio_Wilson(fprop)
-
         ponteiro_flash = np.zeros(len(self.P), dtype = bool)
-        dir_flash = np.argwhere(self.z.T <= 0)
-        ponteiro_flash[dir_flash[:,0]] = True
-        #self.z[self.z==0] = 1e-20
+        #dir_flash = np.argwhere(self.z.T <= 0)
+        #ponteiro_flash[dir_flash[:,0]] = True #this will be changed
+        #self.K[:,wells['all_wells']] = self.equilibrium_ratio_Wilson(P[wells['all_wells']], fprop)
+        self.z[self.z==0] = 1e-20
         if any(~ponteiro_flash) and ctes.Nc>1:
-            sp1,sp2 = self.StabilityTest(fprop, np.copy(~ponteiro_flash))
+            sp1, sp2 = self.StabilityTest(fprop, np.copy(~ponteiro_flash))
             ponteiro_aux = ponteiro_flash[~ponteiro_flash]
-            ponteiro_aux[(np.round(sp1,14) > 1) + (np.round(sp2,14) > 1)] = True #os que devem pass=r para o calculo de flash
+            #self.K[~ponteiro_flash] = Ksp1[(np.round(sp1,14) > 1)] + Ksp2[(np.round(sp2,14) > 1)]
+            ponteiro_aux[(np.round(sp1,14) > 1) + (np.round(sp2,14) > 1)] = True #os que devem passar para o calculo de flash
             ponteiro_flash[~ponteiro_flash] = ponteiro_aux
 
-        self.molar_properties(fprop, np.copy(ponteiro_flash))
-        ponteiro_flash[self.L<0] = False
-        ponteiro_flash[self.L>1] = False
-        self.x[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
-        self.y[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
+            self.molar_properties(fprop, np.copy(ponteiro_flash))
+            ponteiro_flash[self.L<0] = False
+            ponteiro_flash[self.L>1] = False
+            self.x[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
+            self.y[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
 
-        if ctes.Nc == 1: self.run_check_phase_Nc1()
+        if ctes.Nc == 1: self.check_phase_nc_1()
         else: self.bubble_point_pressure(fprop, ~ponteiro_flash)
 
         ksi_L, ksi_V, rho_L, rho_V = self.update_EOS_dependent_properties(fprop)
         return self.L, self.V, self.x, self.y, ksi_L, ksi_V, rho_L, rho_V
 
-    def run_check_phase_Nc1(self):
+    def check_phase_nc_1(self):
         self.x = self.z
         self.y = self.z
         self.L[self.P > self.Pv] = 1
@@ -61,6 +62,7 @@ class StabilityCheck:
 
     def vapor_pressure_pure_substancies(self, fprop):
         '''Lee-Kesler Correlation - only valid for T < Tc'''
+
         Tr = fprop.T/ctes.Tc
 
         A = 5.92714 - 6.09648 / Tr - 1.2886 * np.log(Tr) + 0.16934 * Tr**6
@@ -68,13 +70,15 @@ class StabilityCheck:
         Pv = ctes.Pc * np.exp(A + ctes.w * B)
         return Pv[fprop.T < ctes.Tc]
 
-    def equilibrium_ratio_Wilson(self, fprop):
-        self.K = np.exp(5.37 * (1 + ctes.w) * (1 - 1/(fprop.T / ctes.Tc)))[:,np.newaxis] / \
-                (self.P / ctes.Pc[:,np.newaxis])
+    def equilibrium_ratio_Wilson(self, P, fprop):
+        K = np.exp(5.37 * (1 + ctes.w) * (1 - 1/(fprop.T / ctes.Tc)))[:,np.newaxis] / \
+                (P / ctes.Pc[:,np.newaxis])
+        return K
 
     """------------------- Stability test calculation -----------------------"""
 
     def StabilityTest(self, fprop, ponteiro_stab_check):
+
         ''' In the lnphi function: 0 stands for vapor phase and 1 for liquid '''
 
     #****************************INITIAL GUESS******************************#
@@ -82,11 +86,11 @@ class StabilityCheck:
 
     #*****************************Test one**********************************#
         #Used alone when the phase investigated (z) is clearly vapor like (ph = 0)
-
+        K = self.equilibrium_ratio_Wilson(self.P, fprop)
         ponteiro = np.copy(ponteiro_stab_check)
         Y = np.empty(self.z.shape)
         lnphiz = np.empty(self.z.shape)
-        Y[:,ponteiro] = self.z[:,ponteiro] / self.K[:,ponteiro]
+        Y[:,ponteiro] = self.z[:,ponteiro] / K[:,ponteiro]
         y = Y / np.sum(Y, axis = 0)[np.newaxis,:]
 
         lnphiz[:,ponteiro] = self.EOS.lnphi(self.z[:,ponteiro], self.P[ponteiro], self.ph_V[ponteiro])
@@ -99,13 +103,14 @@ class StabilityCheck:
             ponteiro_aux = ponteiro[ponteiro]
             ponteiro_aux[stop_criteria < 1e-9] = False
             ponteiro[ponteiro] = ponteiro_aux
+        #Ksp1 = z / y
         stationary_point1 = np.sum(Y[:,ponteiro_stab_check], axis = 0)
 
     #*****************************Test two**********************************#
         #Used alone when the phase investigated (z) is clearly liquid like (ph == 1)
         ponteiro = np.copy(ponteiro_stab_check)
 
-        Y[:,ponteiro] = self.K[:,ponteiro] * self.z[:,ponteiro]
+        Y[:,ponteiro] = K[:,ponteiro] * self.z[:,ponteiro]
         y = Y / np.sum(Y, axis = 0)[np.newaxis,:]
         lnphiz[:,ponteiro] = self.EOS.lnphi(self.z[:,ponteiro], self.P[ponteiro], self.ph_L[ponteiro])
         while any(ponteiro):
@@ -118,7 +123,7 @@ class StabilityCheck:
             ponteiro_aux[stop_criteria < 1e-9] = False
             ponteiro[ponteiro] = ponteiro_aux
         stationary_point2 = np.sum(Y[:,ponteiro_stab_check], axis = 0)
-
+        #Ksp2 = y / z
         return stationary_point1, stationary_point2
 
 
@@ -443,7 +448,6 @@ class StabilityCheck:
         Mw_phase = np.sum(l * ctes.Mw[:,np.newaxis], axis = 0)
         rho_phase = ksi_phase * Mw_phase
         return ksi_phase, rho_phase
-
 
     '''def TPD(self, z): #ainda não sei onde usar isso
         x = np.zeros(self.Nc)

@@ -20,7 +20,7 @@ if dd['deletar_results']:
             os.remove(os.path.join(results, f))
 
 class FluidProperties:
-    def __init__(self, wells):
+    def __init__(self, M, wells):
         self.P = np.array([data_loaded['Pressure']['r1']['value']]).astype(float)
         self.T = data_loaded['Temperature']['r1']['value']
         self.xkj = np.ones([ctes.n_components, ctes.n_phases, ctes.n_volumes])
@@ -31,6 +31,7 @@ class FluidProperties:
         self.update_initial_porous_volume()
         self.P = self.P * np.ones(ctes.n_volumes)
         self.P[wells['ws_p']] = wells['values_p']
+        self.Sw = M.data['saturation']
         if ctes.load_k:
             self.z = np.array([data_loaded['compositional_data']['component_data']['z']]).astype(float).T
             self.z = self.z * np.ones(ctes.n_volumes)
@@ -54,7 +55,6 @@ class FluidProperties:
         self.Csi_W0 = self.rho_j[0,ctes.n_phases-1,:] / ctes.Mw_w
         self.Csi_W = self.Csi_W0
         self.rho_W = self.Csi_W * ctes.Mw_w
-        self.Sw = M.data['saturation']
         #self.Csi_j[0,ctes.n_phases-1,:] = self.Csi_W0
         self.xkj[ctes.n_components-1,ctes.n_phases-1,:] = 1
         self.xkj[ctes.n_components-1,0:ctes.n_phases-1,:] = 0

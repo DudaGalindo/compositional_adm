@@ -62,7 +62,11 @@ class delta_time:
 
     def update_delta_tv(self, delta_t, fprop, deltaVlim):
         old_settings = np.seterr(all = 'ignore', divide = 'ignore')
-        deltaVmax = max(np.abs(fprop.Vt - fprop.Vp) / fprop.Vp)
+        deltaVmax = np.max(np.abs(fprop.Vt - fprop.Vp) / fprop.Vp)
+        #deltaVlim = 5e-4
+        if deltaVmax > 5e-4:
+            raise ValueError('diminuir delta_t')
+
         delta_tv = delta_t * deltaVlim / deltaVmax
         np.seterr(**old_settings)
         return delta_tv

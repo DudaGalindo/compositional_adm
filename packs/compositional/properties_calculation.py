@@ -19,7 +19,7 @@ class PropertiesCalc:
         ''' This function was created to calculate the fluid properties at t=0'''
         fprop.Vp = self.update_porous_volume(fprop.P)
         if ctes.load_w:
-            self.set_water_properties(M, fprop)
+            self.update_water_properties(M, fprop)
         fprop.So, fprop.Sg = self.update_saturations(M.data['saturation'],
                             fprop.Csi_j, fprop.L, fprop.V)
         self.set_initial_volume(fprop)
@@ -33,7 +33,7 @@ class PropertiesCalc:
         simulation '''
         fprop.Vp = self.update_porous_volume(fprop.P)
         if ctes.load_w:
-            self.set_water_properties(M, fprop)
+            self.update_water_properties(M, fprop)
         self.update_mole_numbers(fprop)
         self.update_total_volume(fprop)
         fprop.So, fprop.Sg = self.update_saturations(M.data['saturation'],
@@ -42,9 +42,10 @@ class PropertiesCalc:
                           fprop.Csi_j, fprop.xkj)
         self.update_capillary_pressure(fprop)
 
-    def set_water_properties(self, M, fprop):
-        M.data['saturation'], fprop.Csi_W, fprop.rho_W = \
-        self.update_water_saturation(fprop, fprop.Nk[-1,:], fprop.P, fprop.Vp)
+    def update_water_properties(self, M, fprop):
+        if data_loaded['compositional_data']['water_data']['mobility']:
+            M.data['saturation'], fprop.Csi_W, fprop.rho_W = \
+            self.update_water_saturation(fprop, fprop.Nk[-1,:], fprop.P, fprop.Vp)
         fprop.Sw = M.data['saturation']
         fprop.Csi_j[0, ctes.n_phases-1,:] = fprop.Csi_W
         fprop.rho_j[0,ctes.n_phases-1,:] = fprop.rho_W

@@ -103,8 +103,6 @@ class TPFASolver:
 
     def volume_discrepancy_independent_term(self, fprop):
         volume_discrepancy_term = fprop.Vp - fprop.Vt
-        if np.max(abs(fprop.Vp - fprop.Vt)/fprop.Vp) > 5e-4:
-            raise ValueError('diminuir delta_t')
         return volume_discrepancy_term
 
     def well_term(self, fprop, wells):

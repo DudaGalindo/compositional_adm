@@ -5,7 +5,7 @@ from packs.compositional.compositionalIMPEC import CompositionalFVM
 from packs.compositional.stability_check import StabilityCheck
 from packs.compositional.properties_calculation import PropertiesCalc
 from packs.compositional.update_time import delta_time
-from inputs_compositional import FluidProperties
+from get_inputs_compositional import FluidProperties
 from packs.utils import constants as ctes
 import os
 import numpy as np
@@ -42,7 +42,7 @@ class run_simulation:
         ''' get initial fluid - oil, gas and water data and calculate initial \
         properties'''
 
-        fprop = FluidProperties(wells) # load reservoir properties data and initialize other data
+        fprop = FluidProperties(M, wells) # load reservoir properties data and initialize other data
 
         '------------------------- Perform initial flash ----------------------'
 
@@ -105,7 +105,7 @@ class run_simulation:
     def update_loop(self):
         ''' Function to count how many loops it has been since the simulation \
         started'''
-        
+
         self.loop += 1
 
     def update_vpi(self, fprop, wells):
@@ -135,7 +135,7 @@ class run_simulation:
 
         self.current_compositional_results = np.array([self.loop, self.vpi, simulation_time,
         self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
-        self.gas_production, fprop.z, M.data['centroid_volumes']])
+        self.gas_production, fprop.z, M.data['centroid_volumes']],dtype=object)
         self.all_results.append(self.current_compositional_results)
 
     def export_current_compositional_results(self):

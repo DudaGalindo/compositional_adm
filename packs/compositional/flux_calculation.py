@@ -10,7 +10,7 @@ class FOUM:
     Method """
 
     def update_flux(self, fprop, Ft_internal_faces, rho_j_internal_faces, mobilities_internal_faces):
-        ''' ~Global~ function that calls others '''
+        ''' Main function that calls others '''
 
         self.update_Fj_internal_faces(Ft_internal_faces,
         rho_j_internal_faces, mobilities_internal_faces, fprop.Pcap[:,ctes.v0],
