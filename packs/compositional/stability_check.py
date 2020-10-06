@@ -12,44 +12,60 @@ class StabilityCheck:
     """ Check for stability of a thermodynamic equilibrium and returns the
     equilibrium phase compositions (perform the flash calculation) """
 
-    def __init__(self, fprop, P):
+    def __init__(self, P, T):
         # this is called once
-        self.EOS = ctes.EOS_class(fprop.T) #só para os casos isotérmicos - non isothermal entrariam em run (eu acho)
+        self.EOS = ctes.EOS_class(T) #só para os casos isotérmicos - non isothermal entrariam em run (eu acho)
         self.ph_L = np.ones(len(P), dtype = bool)
         self.ph_V = np.zeros(len(P), dtype = bool)
+        self.T = T
         self.Pv = np.array(data_loaded['compositional_data']['component_data']['Pv']).astype(float)
-        self.Pv[fprop.T < ctes.Tc] = self.vapor_pressure_pure_substancies(fprop)
-        self.K = self.equilibrium_ratio_Wilson(P, fprop)
+        self.Pv[T < ctes.Tc] = self.vapor_pressure_pure_substancies()
+        self.K = self.equilibrium_ratio_Wilson(P)
+        self.x = np.empty([ctes.Nc, len(P)])
+        self.y = np.empty_like(self.x)
+        self.L = np.empty(len(P))
+        self.V = np.empty(len(P))
+        self.P = P
 
-    def run(self, fprop, P, L, V, z):
+    def run_init(self, P, L, V, z, pflash = True, ponteiro_flash = []):
+        if pflash==True:
+            ponteiro_flash = np.zeros(len(P), dtype = bool)
+        '-------------------- Get new time-step parameters --------------------'
         self.P = P
         self.L = L
         self.V = V
         self.z = z
-        self.x = np.empty(z.shape)
-        self.y = np.empty(z.shape)
-        ponteiro_flash = np.zeros(len(self.P), dtype = bool)
+        #self.K = self.equilibrium_ratio_Wilson(P, fprop)
         #dir_flash = np.argwhere(self.z.T <= 0)
         #ponteiro_flash[dir_flash[:,0]] = True #this will be changed
         #self.K[:,wells['all_wells']] = self.equilibrium_ratio_Wilson(P[wells['all_wells']], fprop)
-        self.z[self.z==0] = 1e-20
+        #ponteiro_flash[wells['all_wells']] = False
+        #self.z[self.z==0] = 1e-20 #resolver esse Bo de outro jeito
+
         if any(~ponteiro_flash) and ctes.Nc>1:
-            sp1, sp2 = self.StabilityTest(fprop, np.copy(~ponteiro_flash))
+            sp1, sp2 = self.StabilityTest(np.copy(~ponteiro_flash))
             ponteiro_aux = ponteiro_flash[~ponteiro_flash]
             #self.K[~ponteiro_flash] = Ksp1[(np.round(sp1,14) > 1)] + Ksp2[(np.round(sp2,14) > 1)]
             ponteiro_aux[(np.round(sp1,14) > 1) + (np.round(sp2,14) > 1)] = True #os que devem passar para o calculo de flash
             ponteiro_flash[~ponteiro_flash] = ponteiro_aux
 
-            self.molar_properties(fprop, np.copy(ponteiro_flash))
-            ponteiro_flash[self.L<0] = False
-            ponteiro_flash[self.L>1] = False
-            self.x[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
-            self.y[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
+        self.molar_properties(np.copy(ponteiro_flash)) #perform the actual flash
+        ponteiro_flash[self.L<0] = False
+        ponteiro_flash[self.L>1] = False
+        self.x[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
+        self.y[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
 
         if ctes.Nc == 1: self.check_phase_nc_1()
-        else: self.bubble_point_pressure(fprop, ~ponteiro_flash)
+        else: self.bubble_point_pressure(~ponteiro_flash)
 
-        ksi_L, ksi_V, rho_L, rho_V = self.update_EOS_dependent_properties(fprop)
+        ksi_L, ksi_V, rho_L, rho_V = self.update_EOS_dependent_properties()
+        return self.L, self.V, self.x, self.y, ksi_L, ksi_V, rho_L, rho_V
+
+    def run(self, P, L, V, z):
+        ponteiro_flash = self.skip_phase_stability_test(z, P)
+        self.use_previous_K(z, P)
+        self.L, self.V, self.x, self.y, ksi_L, ksi_V, rho_L, rho_V = self.run_init(P, L, V, z, False, ponteiro_flash)
+
         return self.L, self.V, self.x, self.y, ksi_L, ksi_V, rho_L, rho_V
 
     def check_phase_nc_1(self):
@@ -60,24 +76,61 @@ class StabilityCheck:
         self.L[self.P < self.Pv] = 0.
         self.V[self.P < self.Pv] = 1.
 
-    def vapor_pressure_pure_substancies(self, fprop):
+    def use_previous_K(self, z_new, P_new):
+        'Reference: Rezaveisi dissertation'
+        'Two conditions are used here:\
+        1) checks if exists a physically meaningfull solution of the  RR \
+        equation:'
+
+        ponteiro_K = np.zeros(len(P_new), dtype=bool)
+        ponteiro_K[(np.sum(z_new * self.K,axis = 0) >= 1) * (np.sum(z_new / self.K, axis = 0) >= 1)] = True
+        #ponteiro_K[np.sum(z_new / self.K, axis = 0)>=1] = True
+        self.K[:,~ponteiro_K] = self.equilibrium_ratio_Wilson(P_new[~ponteiro_K])
+        #import pdb; pdb.set_trace()
+
+    def skip_phase_stability_test(self, z_new, P_new):
+        'Two conditions are used here:\
+        2) Check if the Gibbs free energy of the K^n mixture is less than the \
+        mixture with the global composition z^(n+1)) '
+        ponteiro_flash = np.zeros(len(P_new), dtype = bool)
+        lj = np.empty([1, 2, len(P_new)])
+        xij = np.empty([ctes.Nc, 2, len(P_new)])
+        lnphi_ij = np.empty_like(xij)
+
+        lj[0,0,:] = self.L
+        lj[0,1,:] = self.V
+        xij[:,0,:] = self.x
+        xij[:,1,:] = self.y
+        lnphiy = self.EOS.lnphi(self.y, P_new, self.ph_L)
+        lnphix = self.EOS.lnphi(self.x, P_new, self.ph_V)
+        lnphiz = self.EOS.lnphi(z_new, P_new, self.ph_L)
+        lnphi_ij[:,0,:] = lnphix
+        lnphi_ij[:,1,:] = lnphiy
+        c1 = np.sum(np.sum(lj * xij * (np.log(xij) + lnphi_ij),axis = 0), axis = 0)
+        c2 = np.sum(z_new * (np.log(z_new) + lnphiz), axis = 0)
+        ponteiro_flash[c1 <= c2] = True
+
+        #if any(self.L==1): import pdb; pdb.set_trace()
+        return ponteiro_flash
+
+    def vapor_pressure_pure_substancies(self):
         '''Lee-Kesler Correlation - only valid for T < Tc'''
 
-        Tr = fprop.T/ctes.Tc
+        Tr = self.T/ctes.Tc
 
         A = 5.92714 - 6.09648 / Tr - 1.2886 * np.log(Tr) + 0.16934 * Tr**6
         B = 15.2518 - 15.6875 / Tr - 13.4721 * np.log(Tr) + 0.4357 * Tr**6
         Pv = ctes.Pc * np.exp(A + ctes.w * B)
-        return Pv[fprop.T < ctes.Tc]
+        return Pv[self.T < ctes.Tc]
 
-    def equilibrium_ratio_Wilson(self, P, fprop):
-        K = np.exp(5.37 * (1 + ctes.w) * (1 - 1/(fprop.T / ctes.Tc)))[:,np.newaxis] / \
+    def equilibrium_ratio_Wilson(self, P):
+        K = np.exp(5.37 * (1 + ctes.w) * (1 - 1/(self.T / ctes.Tc)))[:,np.newaxis] / \
                 (P / ctes.Pc[:,np.newaxis])
         return K
 
     """------------------- Stability test calculation -----------------------"""
 
-    def StabilityTest(self, fprop, ponteiro_stab_check):
+    def StabilityTest(self, ponteiro_stab_check):
 
         ''' In the lnphi function: 0 stands for vapor phase and 1 for liquid '''
 
@@ -86,13 +139,12 @@ class StabilityCheck:
 
     #*****************************Test one**********************************#
         #Used alone when the phase investigated (z) is clearly vapor like (ph = 0)
-        K = self.equilibrium_ratio_Wilson(self.P, fprop)
         ponteiro = np.copy(ponteiro_stab_check)
         Y = np.empty(self.z.shape)
         lnphiz = np.empty(self.z.shape)
-        Y[:,ponteiro] = self.z[:,ponteiro] / K[:,ponteiro]
+        K = self.equilibrium_ratio_Wilson(self.P[ponteiro])
+        Y[:,ponteiro] = self.z[:,ponteiro] / K
         y = Y / np.sum(Y, axis = 0)[np.newaxis,:]
-
         lnphiz[:,ponteiro] = self.EOS.lnphi(self.z[:,ponteiro], self.P[ponteiro], self.ph_V[ponteiro])
         while any(ponteiro):
             Y_old = np.copy(Y[:,ponteiro])
@@ -110,7 +162,7 @@ class StabilityCheck:
         #Used alone when the phase investigated (z) is clearly liquid like (ph == 1)
         ponteiro = np.copy(ponteiro_stab_check)
 
-        Y[:,ponteiro] = K[:,ponteiro] * self.z[:,ponteiro]
+        Y[:,ponteiro] = K * self.z[:,ponteiro]
         y = Y / np.sum(Y, axis = 0)[np.newaxis,:]
         lnphiz[:,ponteiro] = self.EOS.lnphi(self.z[:,ponteiro], self.P[ponteiro], self.ph_L[ponteiro])
         while any(ponteiro):
@@ -129,8 +181,8 @@ class StabilityCheck:
 
     """-------------------- Biphasic flash calculations ---------------------"""
 
-    def molar_properties(self, fprop, ponteiro):
-        self.molar_properties_Whitson(fprop, ponteiro)
+    def molar_properties(self, ponteiro):
+        self.molar_properties_Whitson(ponteiro)
         #if ctes.Nc <= 2: self.molar_properties_Whitson(fprop, ponteiro)
         #else: self.molar_properties_Yinghui(fprop, ponteiro)
 
@@ -302,7 +354,7 @@ class StabilityCheck:
         self.V[ponteiro_save] = V[ind]
         self.L[ponteiro_save] = 1. - self.V[ponteiro_save]
 
-    def solve_objective_function_Whitson_for_V(self, fprop, V, Vmax, Vmin, ponteiro):
+    def solve_objective_function_Whitson_for_V(self, V, Vmax, Vmin, ponteiro):
 
         ponteiro_save = np.copy(ponteiro)
 
@@ -329,9 +381,12 @@ class StabilityCheck:
         self.L[ponteiro_save] = 1. - self.V[ponteiro_save]
 
 
-    def molar_properties_Whitson(self, fprop, ponteiro):
+    def molar_properties_Whitson(self, ponteiro):
         Lmax = np.max(self.K, axis = 0)/(np.max(self.K, axis = 0) - 1)
+        Lmax[np.round(np.max(self.K, axis = 0),7)==1] = 1.00001
         Lmin = np.min(self.K, axis = 0)/(np.min(self.K, axis = 0) - 1)
+        Lmin[np.round(np.min(self.K, axis = 0),7)==1] = -1e-5
+        if any(np.max(self.K, axis = 0)==1): import pdb; pdb.set_trace()
         Vmax = 1. - Lmin
         Vmin = 1. - Lmax
         #Vmin = ((K1-KNc)*z[self.K==K1]-(1-KNc))/((1-KNc)*(K1-1))
@@ -341,7 +396,7 @@ class StabilityCheck:
         ponteiro_save = np.copy(ponteiro)
         razao = np.ones(self.z.shape)/2
         while any(ponteiro):
-            self.solve_objective_function_Whitson_for_V(fprop, V, Vmax, Vmin, np.copy(ponteiro))
+            self.solve_objective_function_Whitson_for_V(V, Vmax, Vmin, np.copy(ponteiro))
             lnphil = self.lnphi_based_on_deltaG(self.x[:,ponteiro], self.P[ponteiro], self.ph_L[ponteiro])
             lnphiv = self.lnphi_based_on_deltaG(self.y[:,ponteiro], self.P[ponteiro], self.ph_V[ponteiro])
             fv = np.exp(lnphiv) * (self.y[:,ponteiro] * self.P[ponteiro][np.newaxis,:])
@@ -365,19 +420,19 @@ class StabilityCheck:
         dlnphidP = self.EOS.dlnphi_dP(dAdP, dBdP, dZdP, Z, A, B)
         return dlnphidP
 
-    def bubble_point_pressure(self, fprop, ponteiro):
+    def bubble_point_pressure(self, ponteiro):
         ponteiro_save = np.copy(ponteiro)
         self.x[:,ponteiro] = self.z[:,ponteiro] #self.x[:,ponteiro]
         y = np.copy(self.x)
 
         # Depende muito de Pbguess (chute inicial de Pb) - PROBLEMÃO AQUI
-        #self.Pv[fprop.T > ctes.Tc] = self.Pv[fprop.T > ctes.Tc] * 0.62
+        #self.Pv[self.T > ctes.Tc] = self.Pv[self.T > ctes.Tc] * 0.62
         i = 0
 
 
         Pb = ctes.Pb_guess*np.ones(len(self.P))#np.sum(self.z * self.Pv[:,np.newaxis], axis = 0) * 0.62
         #Pb = np.sum(self.z[:,ponteiro] * self.Pv[:,np.newaxis], axis = 0)
-        K = np.exp(5.37 * (1 + ctes.w) * (1 - 1 / (fprop.T / ctes.Tc)), dtype=np.double)[:,np.newaxis] / \
+        K = np.exp(5.37 * (1 + ctes.w) * (1 - 1 / (self.T / ctes.Tc)), dtype=np.double)[:,np.newaxis] / \
                 (Pb / ctes.Pc[:,np.newaxis])
         while any(ponteiro):
 
@@ -392,8 +447,8 @@ class StabilityCheck:
             phiv = np.exp(lnphiv)
             phil = np.exp(lnphil)
 
-            dlnphildP = self.get_dlnphidP(fprop.T, self.x[:,ponteiro], Pb[ponteiro], self.ph_L[ponteiro])
-            dlnphivdP = self.get_dlnphidP(fprop.T, y[:,ponteiro], Pb[ponteiro], self.ph_V[ponteiro])
+            dlnphildP = self.get_dlnphidP(self.T, self.x[:,ponteiro], Pb[ponteiro], self.ph_L[ponteiro])
+            dlnphivdP = self.get_dlnphidP(self.T, y[:,ponteiro], Pb[ponteiro], self.ph_V[ponteiro])
 
             dlnfildP = self.EOS.dlnfij_dP(Pb[ponteiro], dlnphildP)
             dfildP = fil * dlnfildP
@@ -430,11 +485,11 @@ class StabilityCheck:
         self.L[ponteiro_save] = L
         self.V[ponteiro_save] = V
 
-    def update_EOS_dependent_properties(self, fprop):
-        #self.EOS = ctes.EOS_class(self.P, fprop.T)
+    def update_EOS_dependent_properties(self):
+        #self.EOS = ctes.EOS_class(self.P, self.T)
 
-        ksi_L, rho_L = self.get_EOS_dependent_properties(fprop.T, self.x, self.P, self.ph_L)
-        ksi_V, rho_V = self.get_EOS_dependent_properties(fprop.T, self.y, self.P, self.ph_V)
+        ksi_L, rho_L = self.get_EOS_dependent_properties(self.T, self.x, self.P, self.ph_L)
+        ksi_V, rho_V = self.get_EOS_dependent_properties(self.T, self.y, self.P, self.ph_V)
         return ksi_L, ksi_V, rho_L, rho_V
 
     def get_EOS_dependent_properties(self, T, l, P, ph):
@@ -473,7 +528,7 @@ class StabilityCheck:
             for j in range(0,self.Nc):
                 fix = math.exp(lnphix[j]) * x[j] * self.P
                 fiz = math.exp(lnphiz[j]) * z[j] * self.P
-                aux = aux + x[j] * ctes.R* fprop.T * (math.log(fix / fiz))
+                aux = aux + x[j] * ctes.R* self.T * (math.log(fix / fiz))
                 TPD[i] = aux
 
         plt.figure(0)

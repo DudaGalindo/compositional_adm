@@ -17,14 +17,14 @@ class CompositionalFVM:
 
         while (r!=1.):
             fprop.P, total_flux_internal_faces, self.q = psolve.get_pressure(M, wells, fprop, delta_t)
-
+            
             if ctes.MUSCL: wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces)
             else:
                 FOUM().update_flux(fprop, total_flux_internal_faces,
                                      fprop.rho_j_internal_faces,
                                      fprop.mobilities_internal_faces)
                 wave_velocity = []
-            
+
             ''' For the composition calculation the time step might be different\
              because it treats composition explicitly and this explicit models \
              are conditionally stable - which can be based on the CFL parameter '''

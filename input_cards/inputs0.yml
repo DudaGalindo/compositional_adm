@@ -46,6 +46,10 @@ compositional_data:
   CFL: 0.5
   Cpc: 62052.84
   Epc: 2
+  MUSCL:
+    DW: false
+    LLF: false
+    set: false
   Pf: 13.78951458E6
   capillary_pressure: Chang
   component_data:
