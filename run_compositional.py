@@ -51,7 +51,7 @@ class run_simulation:
             fprop.L, fprop.V, fprop.xkj[0:ctes.Nc, 0, :], \
             fprop.xkj[0:ctes.Nc, 1, :], fprop.Csi_j[:,0,:], \
             fprop.Csi_j[:,1,:], fprop.rho_j[:,0,:], fprop.rho_j[:,1,:]  =  \
-            self.p2.run_init(fprop.P, fprop.L, fprop.V, fprop.z)
+            self.p2.run_init(fprop.P, fprop.z)
 
         else: fprop.x = []; fprop.y = []
         if ctes.load_w: fprop.inputs_water_properties(M) #load water properties
@@ -82,7 +82,7 @@ class run_simulation:
             fprop.L, fprop.V, fprop.xkj[0:ctes.Nc, 0, :], \
             fprop.xkj[0:ctes.Nc, 1, :], fprop.Csi_j[:,0,:], \
             fprop.Csi_j[:,1,:], fprop.rho_j[:,0,:], fprop.rho_j[:,1,:]  =  \
-            self.p2.run(fprop.P, fprop.L, fprop.V, fprop.z)
+            self.p2.run(fprop.P, fprop.z)
 
         '----------------------- Update fluid properties ----------------------'
 
