@@ -181,7 +181,9 @@ class MUSCL:
         LLF = data_loaded['compositional_data']['MUSCL']['LLF']
         DW = data_loaded['compositional_data']['MUSCL']['DW']
         Fk_face = self.get_Fk_face(fprop, M, Nk_face)
-        ponteiro= np.zeros(ctes.n_internal_faces,dtype=bool)
+        #Fk_face_or = self.get_Fk_face_or(fprop, M, Nk_face)
+
+        ponteiro = np.zeros(ctes.n_internal_faces,dtype=bool)
         if LLF:
             #LR_eigval, d2FkdNk_eigval = self.get_LR_eigenvalues_Serna(M, fprop, Nk_face)
             #LR_eigval = self.get_LR_eigenvalues(M, fprop, Nk_face)
@@ -189,9 +191,11 @@ class MUSCL:
             #ponteiro = self.flux_calculation_conditions(LR_eigval)
             #import pdb; pdb.set_trace()
             alpha = self.wave_velocity_LLF(M, fprop, Nk_face, np.copy(~ponteiro))
+            #alpha_or = self.wave_velocity_LLF_or(M, fprop, Nk_face, np.copy(~ponteiro))
             Fk_internal_faces[:,~ponteiro], alpha_wv[:,~ponteiro,:] = \
             self.update_flux_LLF(Fk_face[:,~ponteiro,:], Nk_face[:,~ponteiro,:],
             alpha)
+
         if DW:
             Fk_face, alpha = self.wave_velocity_DW(M, fprop, Nk_face)
             Fk_internal_faces[:,~ponteiro], alpha_wv = \
@@ -205,14 +209,11 @@ class MUSCL:
                                                 Fk_face[:,ponteiro,:], np.copy(ponteiro))
 
         '-------- Perform volume balance to obtain flux through volumes -------'
-        
         FOUM().update_flux_volumes(fprop, Fk_internal_faces)
 
         return alpha_wv
 
     def get_extrapolated_properties(self, fprop, M, Nk_face, z_face, P_face, Vp, v):
-        L_face = np.empty(len(P_face))
-        V_face = np.empty(len(P_face))
         xkj_face = np.empty((ctes.n_components, ctes.n_phases, len(P_face)))
         Csi_j_face = np.empty((1, ctes.n_phases, len(P_face)))
         rho_j_face = np.empty((1, ctes.n_phases, len(P_face)))
@@ -220,13 +221,10 @@ class MUSCL:
         ''' Flash calculations and properties calculations at each side of the \
         interface '''
         if ctes.compressible_k:
-            p = StabilityCheck(P_face, fprop.T)
             L_face, V_face, xkj_face[0:ctes.Nc,0,...], xkj_face[0:ctes.Nc,1,...], \
             Csi_j_face[0,0,...], Csi_j_face[0,1,...], rho_j_face[0,0,...], \
-            rho_j_face[0,1,...] = p.run_init(P_face, L_face,
-            V_face, z_face)
-            #L_face = np.concatenate(np.split(L_face[:,np.newaxis],v),axis = 1)
-            #V_face = np.concatenate(np.split(V_face[:,np.newaxis],v),axis = 1)
+            rho_j_face[0,1,...] = StabilityCheck(P_face, fprop.T).run_init(P_face, z_face)
+
         else:
             L_face = np.ones(len(z_face[0,:])); V_face = np.zeros(len(z_face[0,:]))
             xkj_face[0:ctes.Nc,0:2,:,i] = 1
@@ -240,14 +238,13 @@ class MUSCL:
 
             Sw_face, Csi_j_face[0,-1,...], rho_j_face[0,-1,...] = \
             PropertiesCalc().update_water_saturation(fprop, Nk_face[-1,...],
-            P_face, Vp.ravel())
+            P_face, Vp)
 
         So_face, Sg_face =  PropertiesCalc().update_saturations(Sw_face,
         Csi_j_face, L_face, V_face)
 
         mobilities_face = PropertiesCalc().update_mobilities(fprop, So_face,
         Sg_face, Sw_face, Csi_j_face, xkj_face)
-
 
         '''mobilities_face = np.concatenate(np.dsplit(mobilities_face[:,:,:,np.newaxis],v),axis = 3)
         rho_j_face = np.concatenate(np.dsplit(rho_j_face[:,:,:,np.newaxis],v),axis = 3)
@@ -269,19 +266,81 @@ class MUSCL:
         np.sign(v-ctes.n_components))))
 
         Vp_reshaped = np.concatenate((Vp_reshaped1, Vp_reshaped2))
+
         mobilities, rho_j, Csi_j, xkj = self.get_extrapolated_properties(fprop, M, Nk, z,
         np.tile(self.P_face[ponteiro],v), Vp_reshaped, v)
-        ftotal = self.Ft_internal_faces[0,ponteiro]
+        ftotal = self.Ft_internal_faces[:,ponteiro]
 
         f = FOUM()
 
         Pcap_reshaped = np.concatenate(np.dsplit(np.tile(fprop.Pcap[:,ctes.v0][:,ponteiro],v),v),axis=1)
         z_reshaped = np.concatenate(np.hsplit(np.tile(ctes.z[ctes.v0][ponteiro],v),v),axis=0)
-
         f.update_Fj_internal_faces(np.tile(ftotal,v), rho_j, mobilities, Pcap_reshaped,
         z_reshaped, np.tile(ctes.pretransmissibility_internal_faces[ponteiro],v))
         Fk = f.update_Fk_internal_faces(xkj, Csi_j)
+        return Fk
 
+    def get_extrapolated_properties_or(self, fprop, M, Nk_face, z_face, P_face, Vp, v=2):
+        L_face = np.empty((len(z_face[0,:]), v))
+        V_face = np.empty((len(z_face[0,:]), v))
+        Sw_face = np.empty((len(z_face[0,:]), v))
+        So_face = np.empty((len(z_face[0,:]), v))
+        Sg_face = np.empty((len(z_face[0,:]), v))
+        ksi_W_face = np.empty_like(Sw_face)
+        rho_W_face = np.empty_like(Sw_face)
+        xkj_face = np.empty((ctes.n_components, ctes.n_phases, len(z_face[0,:]), v))
+        Csi_j_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
+        rho_j_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
+        mobilities_face = np.empty((1, ctes.n_phases, len(z_face[0,:]), v))
+
+        ''' Flash calculations and properties calculations at each side of the \
+        interface '''
+
+        for i in range(0,v):
+
+            if ctes.compressible_k:
+                L_face[:,i], V_face[:,i], xkj_face[0:ctes.Nc,0,:,i], \
+                xkj_face[0:ctes.Nc,1,:,i], Csi_j_face[:,0,:,i], \
+                Csi_j_face[:,1,:,i], rho_j_face[:,0,:,i], \
+                rho_j_face[:,1,:,i]  =  StabilityCheck(P_face, fprop.T).run_init(P_face, z_face[:,:,i])
+            else:
+                L_face[:,i] = 1; V_face[:,i] = 0; xkj_face[0:ctes.Nc,0:2,:,i] = 1
+                rho_j_face[:,:,:,i] = fprop.rho_j[:,:,ctes.v0[:,i]]
+                Csi_j_face[:,:,:,i] = fprop.Csi_j[:,:,ctes.v0[:,i]]
+
+            if ctes.load_w:
+                xkj_face[-1,-1,:,i] = 1
+                xkj_face[-1,0:-1,:,i] = 0
+                xkj_face[0:ctes.Nc,-1,:,i] = 0
+
+                Sw_face[:,i], Csi_j_face[0,-1,:,i], rho_j_face[0,-1,:,i] = \
+                PropertiesCalc().update_water_saturation(fprop, Nk_face[-1,:,i],
+                P_face, Vp[:,i])
+
+            So_face[:,i], Sg_face[:,i] =  PropertiesCalc().update_saturations(
+            Sw_face[:,i], Csi_j_face[:,:,:,i], L_face[:,i], V_face[:,i])
+            mobilities_face[:,:,:,i] = PropertiesCalc().update_mobilities(fprop,
+            So_face[:,i], Sg_face[:,i], Sw_face[:,i], Csi_j_face[:,:,:,i],
+            xkj_face[:,:,:,i])
+
+        return mobilities_face, rho_j_face, Csi_j_face, xkj_face
+
+    def Fk_Nk_or(self, fprop, M, Nk, ponteiro):
+        ''' Function to compute component flux based on a given composition (Nk) '''
+
+        z = Nk[0:ctes.Nc] / np.sum(Nk[0:ctes.Nc], axis = 0)
+        Nk = Nk[:,:,np.newaxis]
+        z = z[:,:,np.newaxis]
+        mobilities, rho_j, Csi_j, \
+        xkj = self.get_extrapolated_properties_or(fprop, M, Nk, z,
+        self.P_face[ponteiro], fprop.Vp[ctes.v0][ponteiro], v = 1)
+        ftotal = self.Ft_internal_faces[:,ponteiro]
+
+        f = FOUM()
+        f.update_Fj_internal_faces(ftotal, rho_j[:,:,:,0], mobilities[:,:,:,0],
+        fprop.Pcap[:,ctes.v0][:,ponteiro], ctes.z[ctes.v0][ponteiro],
+        ctes.pretransmissibility_internal_faces[ponteiro])
+        Fk = f.update_Fk_internal_faces(xkj[:,:,:,0], Csi_j[:,:,:,0])
         return Fk
 
     def dFk_dNk(self, fprop, M, Nk_face, delta, k, ponteiro):
@@ -299,6 +358,16 @@ class MUSCL:
         Fk_face = self.Fk_Nk(fprop, M, np.concatenate((Nk_face[:,:,0],Nk_face[:,:,1]),axis=1),
         np.ones(ctes.n_internal_faces, dtype=bool))
         Fk_face = np.concatenate(np.hsplit(Fk_face[:,:,np.newaxis],2),axis = 2)
+        return Fk_face
+
+    def get_Fk_face_or(self, fprop, M, Nk_face):
+        ''' Function that computes the flux in each face side (Left and Right)'''
+
+        Fk_face = np.empty((ctes.n_components,ctes.n_internal_faces, 2))
+        for i in range(2):
+            Fk_face[:,:,i] = self.Fk_Nk_or(fprop, M, Nk_face[:,:,i],
+            np.ones(ctes.n_internal_faces,dtype=bool))
+
         return Fk_face
 
     '''def get_LR_eigenvalues_Serna(self, M, fprop, Nk_face):
@@ -352,8 +421,6 @@ class MUSCL:
 
         Nkm = (Nk_face[:,ponteiro,1] + Nk_face[:,ponteiro,0])/2
 
-        #Nk_face = np.concatenate((Nk_face[:,ponteiro,0], Nk_face[:,ponteiro,1]),axis=1)
-
         Nkg = Nkm[:,:,np.newaxis] + (Nk_face[:,ponteiro] - Nkm[:,:,np.newaxis])/(3**(1/2))
 
         Nkg_plus = Nkg[np.newaxis,...] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
@@ -365,15 +432,15 @@ class MUSCL:
         Nkg_minus = np.concatenate(np.split(Nkg_minus, ctes.n_components),axis=2)[0,...]
         Nkg_plus = np.concatenate(np.dsplit(Nkg_plus, 2),axis=1)[:,:,0]
         Nkg_minus = np.concatenate(np.dsplit(Nkg_minus, 2),axis=1)[:,:,0]
-
         dFkdNk_gauss = ((self.Fk_Nk(fprop, M, Nkg_plus, ponteiro) -
-        self.Fk_Nk(fprop, M, Nkg_minus, ponteiro))/(delta))
+        self.Fk_Nk(fprop, M, Nkg_minus, ponteiro))/(Nkg_plus - Nkg_minus).sum(axis=0))
+
         dFkdNk_gauss = np.concatenate(np.hsplit(dFkdNk_gauss[:,:,np.newaxis],2),axis=2)
         dFkdNk_gauss = np.concatenate(np.hsplit(dFkdNk_gauss[:,:,:,np.newaxis],ctes.n_components),axis=3)
         dFkdNk_gauss = dFkdNk_gauss.transpose(2,1,0,3)
 
-        Nk_face_plus = Nk_face[np.newaxis,:,ponteiro] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
-        Nk_face_minus = Nk_face[np.newaxis,:,ponteiro] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
+        Nk_face_plus = Nk_face[np.newaxis,:,ponteiro,:] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
+        Nk_face_minus = Nk_face[np.newaxis,:,ponteiro,:] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
         Nk_face_plus += delta * 0.5 * matrix_deltas
         Nk_face_minus -= delta * 0.5 * matrix_deltas
         Nk_face_plus = np.concatenate(np.split(Nk_face_plus, ctes.n_components),axis=2)[0,...]
@@ -381,7 +448,7 @@ class MUSCL:
         Nk_face_plus = np.concatenate(np.dsplit(Nk_face_plus, 2),axis=1)[:,:,0]
         Nk_face_minus = np.concatenate(np.dsplit(Nk_face_minus, 2),axis=1)[:,:,0]
         dFkdNk = ((self.Fk_Nk(fprop, M, Nk_face_plus, ponteiro) -
-        self.Fk_Nk(fprop, M, Nk_face_minus, ponteiro))/(delta))
+        self.Fk_Nk(fprop, M, Nk_face_minus, ponteiro))/(Nk_face_plus - Nk_face_minus).sum(axis=0))
         dFkdNk = np.concatenate(np.hsplit(dFkdNk[:,:,np.newaxis],2),axis=2)
         dFkdNk = np.concatenate(np.hsplit(dFkdNk[:,:,:,np.newaxis],ctes.n_components),axis=3)
         dFkdNk = dFkdNk.transpose(2,1,0,3)
@@ -394,19 +461,74 @@ class MUSCL:
         Nkm_plus = np.concatenate(np.split(Nkm_plus, ctes.n_components),axis=2)[0,...]
         Nkm_minus = np.concatenate(np.split(Nkm_minus, ctes.n_components),axis=2)[0,...]
         dFkdNk_m = ((self.Fk_Nk(fprop, M, Nkm_plus, ponteiro) -
-        self.Fk_Nk(fprop, M, Nkm_minus, ponteiro))/ (delta))
+        self.Fk_Nk(fprop, M, Nkm_minus, ponteiro))/ (Nkm_plus - Nkm_minus).sum(axis=0))
         dFkdNk_m = np.concatenate(np.hsplit(dFkdNk_m[:,:,np.newaxis],ctes.n_components),axis = 2)
         dFkdNk_m = dFkdNk_m.transpose(1,0,2)
 
+
         eigval1, v = np.linalg.eig(dFkdNk)
-        dFkdNk_eigvalue = eigval1.T
+        dFkdNk_eigvalue = eigval1.transpose(2,1,0)
         eigval2, v = np.linalg.eig(dFkdNk_gauss)
-        dFkdNk_gauss_eigvalue = eigval2.T
+        dFkdNk_gauss_eigvalue = eigval2.transpose(2,1,0)
         eigval3, v = np.linalg.eig(dFkdNk_m)
         dFkdNk_m_eigvalue = eigval3.T
 
         alpha = np.concatenate((dFkdNk_eigvalue[:,ponteiro], dFkdNk_gauss_eigvalue), axis=-1)
         alpha = np.concatenate((alpha, dFkdNk_m_eigvalue[:,:,np.newaxis]), axis=-1)
+        return alpha
+
+    def wave_velocity_LLF_or(self, M, fprop, Nk_face, ponteiro):
+        delta = 0.001
+        dFkdNk = np.empty((ctes.n_internal_faces, ctes.n_components, ctes.n_components))
+        dFkdNk_eigvalue = np.empty((ctes.n_components,ctes.n_internal_faces, 2))
+        dFkdNk_gauss = np.empty((len(ponteiro[ponteiro]), ctes.n_components, ctes.n_components))
+        dFkdNk_m = np.empty((len(ponteiro[ponteiro]), ctes.n_components, ctes.n_components))
+        dFkdNk_gauss_eigvalue = np.empty((ctes.n_components,len(ponteiro[ponteiro]), 2))
+        dFkdNk_m_eigvalue = np.empty((ctes.n_components,len(ponteiro[ponteiro])))
+
+        Nkm = (Nk_face[:,ponteiro,1] + Nk_face[:,ponteiro,0])/2
+
+        for i in range(2):
+            Nkg = Nkm + (Nk_face[:,ponteiro,i] - Nkm)/(3**(1/2))
+
+            for k in range(0,ctes.n_components):
+
+                Nkg_plus = np.copy(Nkg)
+                Nkg_minus = np.copy(Nkg)
+                Nkg_plus[k] += delta*0.5
+                Nkg_minus[k] -= delta*0.5
+                dFkdNk_gauss[:,:,k] = ((self.Fk_Nk_or(fprop, M, Nkg_plus, ponteiro) -
+                                    self.Fk_Nk_or(fprop, M, Nkg_minus, ponteiro))/
+                                    (Nkg_plus[k]-Nkg_minus[k])).T
+
+                Nk_face_plus = np.copy(Nk_face[:,:,i])
+                Nk_face_minus = np.copy(Nk_face[:,:,i])
+                Nk_face_plus[k] += delta*0.5
+                Nk_face_minus[k] -= delta*0.5
+                dFkdNk[:,:,k] = ((self.Fk_Nk_or(fprop, M, Nk_face_plus, ponteiro) -
+                                    self.Fk_Nk_or(fprop, M, Nk_face_minus, ponteiro))\
+                                    /(Nk_face_plus[k] - Nk_face_minus[k])).T
+
+                if i==0:
+                    Nkm_plus = np.copy(Nkm)
+                    Nkm_minus = np.copy(Nkm)
+                    Nkm_plus[k] += delta*0.5
+                    Nkm_minus[k] -= delta*0.5
+                    dFkdNk_m[:,:,k] = ((self.Fk_Nk_or(fprop, M, Nkm_plus, ponteiro) -
+                            self.Fk_Nk_or(fprop, M, Nkm_minus, ponteiro))/
+                            (Nkm_plus[k]-Nkm_minus[k])).T
+
+            eigval1, v = np.linalg.eig(dFkdNk)
+            dFkdNk_eigvalue[:,:,i] = eigval1.T
+            eigval2, v = np.linalg.eig(dFkdNk_gauss)
+            dFkdNk_gauss_eigvalue[:,:,i] = eigval2.T
+
+        eigval3, v = np.linalg.eig(dFkdNk_m)
+        dFkdNk_m_eigvalue = eigval3.T
+
+        alpha = np.concatenate((dFkdNk_eigvalue[:,ponteiro], dFkdNk_gauss_eigvalue), axis=-1)
+        alpha = np.concatenate((alpha, dFkdNk_m_eigvalue[:,:,np.newaxis]), axis=-1)
+
         return alpha
 
     def wave_velocity_DW(self, M, fprop, Nk_face):

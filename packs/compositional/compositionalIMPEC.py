@@ -17,7 +17,7 @@ class CompositionalFVM:
 
         while (r!=1.):
             fprop.P, total_flux_internal_faces, self.q = psolve.get_pressure(M, wells, fprop, delta_t)
-            
+
             if ctes.MUSCL: wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces)
             else:
                 FOUM().update_flux(fprop, total_flux_internal_faces,
