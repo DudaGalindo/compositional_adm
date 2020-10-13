@@ -13,8 +13,8 @@ class PengRobinson:
         PR_kC7 = np.array([0.379642, 1.48503, 0.1644, 0.016667])
         PR_k = np.array([0.37464, 1.54226, 0.26992])
         k = (PR_kC7[0] + PR_kC7[1] * ctes.w - PR_kC7[2] * ctes.w ** 2 + \
-            PR_kC7[3] * ctes.w ** 3) * (1*(ctes.w >= 0.49))  + (PR_k[0] + PR_k[1] * ctes.w - \
-            PR_k[2] * ctes.w ** 2) * (1*(ctes.w < 0.49))
+            PR_kC7[3] * ctes.w ** 3) * (1*(ctes.w >= 0.4884))  + (PR_k[0] + PR_k[1] * ctes.w - \
+            PR_k[2] * ctes.w ** 2) * (1*(ctes.w < 0.4884))
         alpha = (1 + k * (1 - (self.T/ ctes.Tc) ** (1 / 2))) ** 2
         aalpha_i = 0.45724 * (ctes.R * ctes.Tc) ** 2 / ctes.Pc * alpha
         self.b = 0.07780 * ctes.R * ctes.Tc / ctes.Pc
@@ -45,19 +45,26 @@ class PengRobinson:
         if any(aux_reais): Z[~root[aux_reais]] = Z[root[aux_reais]][0]
 
         Z[~root[n_reais==1]] = np.repeat(Z[root[n_reais == 1]], 2)
+
+        aux_neg = np.zeros(Z.shape,dtype=bool)
+        aux_neg[Z<0] = True
+        Z[aux_neg] = Z[~aux_neg][0]
+        Zsave = Z
         Z = np.min(Z, axis = 1) * ph + np.max(Z, axis = 1) * (1 - ph)
         Z = np.real(Z)
         return Z
 
     def lnphi(self, l, P, ph):
+        xkj = l
         A, B = self.coefficients_cubic_EOS_vectorized(l, P)
         Z = self.Z_vectorized(A, B, ph)
+        dd = (Z[np.newaxis,:] + (1 - 2 ** (1/2)) * B[np.newaxis,:])
         lnphi = self.lnphi_calculation(A, B, Z)
         return lnphi
 
     def lnphi_calculation(self, A, B, Z):
         lnphi = self.b[:,np.newaxis] / self.bm[np.newaxis,:] * (Z[np.newaxis,:] - 1) - \
-        np.log(abs(Z[np.newaxis,:] - B[np.newaxis,:])) - A[np.newaxis,:] / (2 * (2
+        np.log((Z[np.newaxis,:] - B[np.newaxis,:])) - A[np.newaxis,:] / (2 * (2
         ** (1/2)) * B[np.newaxis,:]) * (2 * self.psi / self.aalpha[np.newaxis,:] - \
         self.b[:,np.newaxis] / self.bm[np.newaxis,:]) * np.log((Z[np.newaxis,:] + (1 +
         2 ** (1/2)) * B[np.newaxis,:]) / (Z[np.newaxis,:] + (1 - 2 ** (1/2)) * B[np.newaxis,:]))
