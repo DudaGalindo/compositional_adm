@@ -356,9 +356,9 @@ class StabilityCheck:
     def solve_objective_function_Whitson_for_V(self, V, Vmax, Vmin, ponteiro):
 
         ponteiro_save = np.copy(ponteiro)
-        i=0
+
         while any(ponteiro):
-            i+=1
+
             Vold = np.copy(V[ponteiro])
             f = np.sum((self.K[:,ponteiro] - 1) * self.z[:,ponteiro] / (1 + V[ponteiro][np.newaxis,:] *
                 (self.K[:,ponteiro] - 1)), axis = 0)
@@ -373,9 +373,7 @@ class StabilityCheck:
             ponteiro_aux = ponteiro[ponteiro]
             ponteiro_aux[stop_criteria < 1e-9] = False
             ponteiro[ponteiro] = ponteiro_aux
-            if i>100:
-                 import pdb; pdb.set_trace()
-                 ponteiro[ponteiro] = False
+
 
         self.V[ponteiro_save] = V[ponteiro_save]
         self.x[:,ponteiro_save] = self.z[:,ponteiro_save] / (1 + self.V[ponteiro_save][np.newaxis,:] *
@@ -396,9 +394,9 @@ class StabilityCheck:
         self.V[ponteiro] = (Vmin[ponteiro] + Vmax[ponteiro]) * 0.5
         ponteiro_save = np.copy(ponteiro)
         razao = np.ones(self.z.shape)/2
-        i=0
+
         while any(ponteiro):
-            i+=1
+
             self.solve_objective_function_Whitson_for_V(self.V, Vmax, Vmin, np.copy(ponteiro))
             lnphil = self.lnphi_based_on_deltaG(self.x[:,ponteiro], self.P[ponteiro], self.ph_L[ponteiro])
             lnphiv = self.lnphi_based_on_deltaG(self.y[:,ponteiro], self.P[ponteiro], self.ph_V[ponteiro])
@@ -412,9 +410,7 @@ class StabilityCheck:
             ponteiro_aux[stop_criteria < 1e-9] = False
             ponteiro[ponteiro] = ponteiro_aux
             ponteiro[abs(self.L) > 2] = False
-            if i>100:
-                import pdb; pdb.set_trace()
-                ponteiro[ponteiro] = False
+            
             #if np.isnan(self.V).any(): import pdb; pdb.set_trace()
 
     def get_dlnphidP(self, T, xij, P, ph):
