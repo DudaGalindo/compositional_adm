@@ -50,7 +50,7 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: .1
-    deltaSlim: .002
+    deltaSlim: .0025
     deltaVlim: .1
     delta_t_ini: 100
     delta_tmax: 86400
@@ -62,6 +62,7 @@ compositional_data:
     Mw_w: 18.015e-3
     Cw: 0 #4.35e-10
     Pw: 10.34e6
+    mobility: True
 
   residual_saturations:
     Sorw: 0.1

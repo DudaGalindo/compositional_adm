@@ -66,8 +66,16 @@ class MUSCL:
         self.P_face = np.sum(P_old[ctes.v0], axis=1) * 0.5
         dNk_vols = self.volume_gradient_reconstruction(M, fprop, wells)
         dNk_face, dNk_face_neig = self.get_faces_gradient(M, fprop, dNk_vols)
-        phi = self.Van_Leer_slope_limiter(dNk_face, dNk_face_neig); self.phi = phi
-        Nk_face, z_face = self.get_extrapolated_compositions(fprop, phi, dNk_face_neig)
+
+        order = data_loaded['compositional_data']['MUSCL']['order']
+        if order == 2:
+            Phi = self.Van_Leer_slope_limiter(dNk_face, dNk_face_neig)
+            Nk_face, z_face = self.get_extrapolated_compositions(fprop, Phi, dNk_face_neig)
+        elif order == 3:
+            Phi_MLP, Theta_MLP2 = self.MLP_slope_limiter(M, fprop, np.copy(dNk_face_neig), dNk_face)
+            Nk_face, z_face = self.get_extrapolated_compositions_MLP(fprop, Phi_MLP, Theta_MLP2, dNk_face_neig, dNk_face)
+        else: return ValueError('Order of the approximation for the MUSCL method does not exist. \
+        Please write 2 for second order or 3 for third order.')
         #G = self.update_gravity_term() # for now, it has no gravity
         alpha = self.update_flux(M, fprop, Nk_face)
         return alpha
@@ -106,9 +114,9 @@ class MUSCL:
         dNkds_vols = np.copy(dNk_vols)
         dNkds_vols[:,ds_vols!=0] = dNk_vols[:,ds_vols != 0] / ds_vols[ds_vols != 0][np.newaxis,:]
         self.all_neig = all_neig.sum(axis=1)
-        faces_contour = self.identify_contour_faces()
+        self.faces_contour = self.identify_contour_faces()
         #dNkds_vols[:,:,all_neig.sum(axis=1)==1] = 0 #*dNkds_vols[:,:,all_neig.sum(axis=1)==1]
-        dNkds_vols[:,:,ctes.v0[faces_contour].flatten()] = 0 # zero in the contour volumes
+        dNkds_vols[:,:,ctes.v0[self.faces_contour].flatten()] = 0 # zero in the contour volumes
         return dNkds_vols
 
     def get_faces_gradient(self, M, fprop, dNkds_vols):
@@ -123,12 +131,99 @@ class MUSCL:
         r_face = dNk_face[:,:,np.newaxis] / dNk_face_neig
         r_face[dNk_face_neig==0] = 0
         phi = (r_face + abs(r_face)) / (r_face + 1)
-        phi[r_face<0]=0 #so botei pra caso r==-1
-        phi[:,:,1] = -phi[:,:,1]
-        return phi
+        phi[r_face<0] = 0 #so botei pra caso r==-1
+        Phi = phi
+        Phi[:,:,1] = -Phi[:,:,1]
+        return Phi
 
-    def get_extrapolated_compositions(self, fprop, phi, dNk_face_neig):
-        Nk_face = fprop.Nk[:,ctes.v0] + phi / 2 * dNk_face_neig
+    def Van_Albada1_slope_limiter(self, dNk_face, dNk_face_neig):
+        np.seterr(divide='ignore', invalid='ignore')
+        r_face = dNk_face[:,:,np.newaxis] / dNk_face_neig
+        r_face[dNk_face_neig==0] = 0
+        phi = (r_face**2 + abs(r_face)) / (r_face**2 + 1)
+        phi[r_face<0]=0 #so botei pra caso r==-1
+        Phi = phi
+        Phi[:,:,1] = -Phi[:,:,1]
+        return Phi
+
+    def get_extrapolated_compositions(self, fprop, Phi, dNk_face_neig):
+        Nk_face = fprop.Nk[:,ctes.v0] + Phi / 2 * dNk_face_neig
+        z_face = Nk_face[0:ctes.Nc] / np.sum(Nk_face[0:ctes.Nc], axis = 0)
+        return Nk_face, z_face
+
+    def MLP_slope_limiter(self, M, fprop, dNk_face_neig, dNk_face):
+        np.seterr(divide='ignore', invalid='ignore')
+        '------------------------Seccond Order term----------------------------'
+        delta_inf = dNk_face_neig/2
+        delta_inf[:,:,1] = - delta_inf[:,:,1]
+        delta_sup = np.empty_like(dNk_face_neig)
+        Nk_aux = np.copy(fprop.Nk[:,ctes.v0])
+        Nk_aux_max = np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]
+        Nk_aux_max = np.concatenate((Nk_aux_max, Nk_aux_max),axis=2)
+        Nk_aux_min = np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]
+        Nk_aux_min = np.concatenate((Nk_aux_min, Nk_aux_min),axis=2)
+
+        delta_sup[delta_inf>0] = Nk_aux_max[delta_inf>0] - Nk_aux[delta_inf>0]
+        delta_sup[delta_inf<0] = Nk_aux_min[delta_inf<0] - Nk_aux[delta_inf<0]
+
+        e2 = 0#(5 * (M.data['area'][M.faces.internal])**3)[np.newaxis,:,np.newaxis]
+        Phi_MLP = 1 / delta_inf * (((delta_sup**2 + e2) * delta_inf + 2 * delta_inf**2 * delta_sup)
+            / (delta_sup**2 + 2 * delta_inf**2 + delta_sup * delta_inf + e2))
+        Phi_MLP[delta_inf==0] = 0
+        #Nk_face = fprop.Nk[:,ctes.v0] + Phi_MLP*delta_inf
+        #Phi_MLP[Nk_face < Nk_aux_min] = 0
+        #Phi_MLP[Nk_face > Nk_aux_max] = 0
+
+        '-------------------------Third Order term-----------------------------'
+        Theta_MLP2 = np.ones_like(Phi_MLP)
+        d2Nk_vols = dNk_face[:,:,np.newaxis] - dNk_face_neig
+        Nk_face = fprop.Nk[:,ctes.v0] + delta_inf
+        Nk_face = fprop.Nk[:,ctes.v0] + delta_inf + 1/8 * d2Nk_vols
+        cond1 = (Nk_face > np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]) * \
+            (dNk_face_neig > 0) * (d2Nk_vols < 0)
+        cond2 = (Nk_face < np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]) * \
+            (dNk_face_neig < 0) * (d2Nk_vols > 0)
+        Theta_MLP2[cond1 + cond2] = 0
+        cond3 = (np.abs(delta_inf/fprop.Nk[:,ctes.v0]) <= 0.001)
+        Theta_MLP2[cond3] = 1
+        Theta_MLP2[Nk_face > np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]] = 0
+        Theta_MLP2[Nk_face < np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]] = 0
+
+        'Creating mapping between volumes and internal faces, to get minimum \
+        value of the limiter projection at the face. It will be a value for \
+        each control volume, and not for each face, as it was beeing done '
+        vols_vec = -np.ones((ctes.n_volumes,2),dtype=int)
+        lines = np.arange(ctes.n_internal_faces)
+        vols_vec[ctes.v0[:,0],0] = lines
+        vols_vec[ctes.v0[:,1],1] = lines
+        contour_vols = np.argwhere(vols_vec<0)[:,0]
+        vols_vec[vols_vec < 0] = vols_vec[contour_vols,:][vols_vec[contour_vols]>0]
+
+        Phi_MLPv = np.empty((ctes.n_components,ctes.n_volumes,2))
+        Phi_MLPv[:,:,0] = Phi_MLP[:,vols_vec[:,0],0]
+        Phi_MLPv[:,:,1] = Phi_MLP[:,vols_vec[:,1],1]
+        Phi_MLPv = np.min(Phi_MLPv,axis=2)
+        Phi_MLP = Phi_MLPv[:,ctes.v0]
+
+        Theta_MLP2v = np.empty((ctes.n_components,ctes.n_volumes,2))
+        Theta_MLP2v[:,:,0] = Theta_MLP2[:,vols_vec[:,0],0]
+        Theta_MLP2v[:,:,1] = Theta_MLP2[:,vols_vec[:,1],1]
+        Theta_MLP2v = np.min(Theta_MLP2v,axis=2)
+        Theta_MLP2 = Theta_MLP2v[:,ctes.v0]
+        Phi_MLP[:,:,1] = - Phi_MLP[:,:,1]
+        Theta_MLP2[:,:,1] = - Theta_MLP2[:,:,1]
+        return Phi_MLP, Theta_MLP2
+
+
+    def get_extrapolated_compositions_MLP(self, fprop, Phi_MLP, Theta_MLP2, dNk_face_neig, dNk_face):
+        'Activating limiters at the faces of the contour control volumes '
+        r_face = dNk_face[:,:,np.newaxis] / dNk_face_neig
+        d2Nk_vols = dNk_face[:,:,np.newaxis] - dNk_face_neig
+        Phi_MLP[r_face<0] = 0
+        Theta_MLP2[r_face<0] = 0
+
+        d2Nk_vols = dNk_face[:,:,np.newaxis] - dNk_face_neig
+        Nk_face = fprop.Nk[:,ctes.v0] + Phi_MLP/2 * dNk_face_neig + Theta_MLP2/8 * d2Nk_vols
         z_face = Nk_face[0:ctes.Nc] / np.sum(Nk_face[0:ctes.Nc], axis = 0)
         return Nk_face, z_face
 
@@ -175,30 +270,28 @@ class MUSCL:
     def update_flux(self, M, fprop, Nk_face):
         Fk_internal_faces = np.empty((ctes.n_components,ctes.n_internal_faces))
         alpha_wv = np.empty((ctes.n_components, ctes.n_internal_faces,5))
-        #LLF = data_loaded['compositional_data']['MUSCL']['LLF']
         Fk_face = self.get_Fk_face(fprop, M, Nk_face)
-        
+
         ponteiro = np.zeros(ctes.n_internal_faces,dtype=bool)
 
         #LR_eigval, d2FkdNk_eigval = self.get_LR_eigenvalues_Serna(M, fprop, Nk_face)
         #LR_eigval = self.get_LR_eigenvalues(M, fprop, Nk_face,  np.ones(ctes.n_internal_faces,dtype=bool))
         #ponteiro = self.flux_calculation_conditions_Serna(LR_eigval, d2FkdNk_eigval)
         #ponteiro = self.flux_calculation_conditions(LR_eigval)
-        if any(~ponteiro):
-            alpha = self.wave_velocity_LLF(M, fprop, Nk_face, np.copy(~ponteiro))
-            Fk_internal_faces[:,~ponteiro], alpha_wv[:,~ponteiro,:] = \
-            self.update_flux_LLF(Fk_face[:,~ponteiro,:], Nk_face[:,~ponteiro,:],
-            alpha)
 
-        if any(ponteiro):
+        alpha = self.wave_velocity_LLF(M, fprop, Nk_face, np.copy(~ponteiro))
+        Fk_internal_faces[:,~ponteiro], alpha_wv[:,~ponteiro,:] = \
+        self.update_flux_LLF(Fk_face[:,~ponteiro,:], Nk_face[:,~ponteiro,:],
+        alpha)
+
+        '''if any(ponteiro):
             alpha_wv[:,ponteiro,:] = 0
             #alpha_wv[:,ponteiro,0:2] = LR_eigval[:,ponteiro]
             Fk_internal_faces[:,ponteiro] = self.update_flux_upwind(fprop,
-                                                Fk_face[:,ponteiro,:], np.copy(ponteiro))
+                                                Fk_face[:,ponteiro,:], np.copy(ponteiro))'''
 
         '-------- Perform volume balance to obtain flux through volumes -------'
         FOUM().update_flux_volumes(fprop, Fk_internal_faces)
-
         return alpha_wv
 
     def get_extrapolated_properties(self, fprop, M, Nk_face, z_face, P_face, Vp, v):

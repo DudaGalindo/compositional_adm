@@ -1,6 +1,6 @@
 #Compressive Oil case with 1 component in 1-D reservoir
 mesh_name: 128x1x1_6k.msh
-name_save_file: 'results_water_inj_6k_128_MUSCL_modified_case_test'
+name_save_file: 'results_water_inj_6k_128_MUSCL_3modified_case'
 
 compositional: True
 hidrocarbon_components: True
@@ -29,8 +29,7 @@ compositional_data:
   CFL: 0.5
   MUSCL:
     set: True
-    DW: False
-    LLF: True
+    order: 3
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [8640000, 17280000]
   maximum_time: 17280000
@@ -49,7 +48,7 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: .1
-    deltaSlim: .0015
+    deltaSlim: .003
     deltaVlim: .1
     delta_t_ini: 100
     delta_tmax: 86400
@@ -87,7 +86,7 @@ compositional_data:
     Pc: [4600155, 4245517.5, 2968822.5, 2107560.0, 1.47e6, 1.17e6]
     vc: [0.000099, 0.000203, 0.00037, 0.000603, 0.000895, 0.00169]
     Mw: [16.042e-3, 44.1e-3, 86.178e-3, 142.276e-3, 212.41e-3, 282.5e-3]
-    w: [0.008, 0.152, 0.299, 0.4890, 0.685, 0.912]
+    w: [0.008, 0.152, 0.299, 0.49, 0.685, 0.912]
     Bin: [[0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.]]
     Pv: [8e6, 0., 0., 0., 0., 0.]
     vshift_parameter: [0.0, 0.0, 0.0, 0., 0., 0.]

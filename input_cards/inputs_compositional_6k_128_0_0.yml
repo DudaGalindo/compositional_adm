@@ -28,7 +28,8 @@ monophasic_data:
 compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 1
-  MUSCL: False
+  MUSCL:
+    set: False
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [8640000, 17280000]
   maximum_time: 17280000
@@ -47,8 +48,8 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: .1
-    deltaSlim: .002
-    deltaVlim: .1
+    deltaSlim: .003
+    deltaVlim: 0.1
     delta_t_ini: 100
     delta_tmax: 86400
     delta_tmin: 10
@@ -59,6 +60,7 @@ compositional_data:
     Mw_w: 18.015e-3
     Cw: 0 #4.35e-10
     Pw: 10.34e6
+    mobility: True
 
   residual_saturations:
     Sorw: 0.1
@@ -84,7 +86,7 @@ compositional_data:
     Pc: [4600155, 4245517.5, 2968822.5, 2107560.0, 1.47e6, 1.17e6]
     vc: [0.000099, 0.000203, 0.00037, 0.000603, 0.000895, 0.00169]
     Mw: [16.042e-3, 44.1e-3, 86.178e-3, 142.276e-3, 212.41e-3, 282.5e-3]
-    w: [0.008, 0.152, 0.299, 0.4890, 0.685, 0.912]
+    w: [0.008, 0.152, 0.299, 0.489, 0.685, 0.912]
     Bin: [[0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.]]
     Pv: [8e6, 0., 0., 0., 0., 0.]
     vshift_parameter: [0.0, 0.0, 0.0, 0., 0., 0.]

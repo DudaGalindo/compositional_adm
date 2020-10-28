@@ -138,6 +138,12 @@ class run_simulation:
         self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
         self.gas_production, fprop.z, M.data['centroid_volumes']],dtype=object)
         self.all_results.append(self.current_compositional_results)
+        M.data['saturation'] = fprop.Sw
+        M.data['So'] = fprop.So
+        M.data['Sg'] = fprop.Sg
+        M.data['P'] = fprop.P
+        M.data.update_variables_to_mesh()
+        M.core.print(file = self.name_all_results + str(self.loop), extension ='.vtk')
 
     def export_current_compositional_results(self):
          np.save(self.name_current_results, self.current_compositional_results)
@@ -149,7 +155,7 @@ class run_simulation:
     def save_infos(self, data_impress, M):
          self.export_current_compositional_results()
          self.export_all_results()
-         data_impress.update_variables_to_mesh()
-         data_impress.export_all_datas_to_npz()
-         M.core.print(file=self.mesh_name, extension='.h5m', config_input="input_cards/print_settings.yml")
-         # M.core.print(file=self.mesh_name, extension='.vtk', config_input="input_cards/print_settings.yml")
+         #data_impress.update_variables_to_mesh()
+         #data_impress.export_all_datas_to_npz()
+         #M.core.print(file=self.mesh_name, extension='.h5m', config_input="input_cards/print_settings.yml")
+        # M.core.print(file = self.mesh_name, extension='.vtk', config_input="input_cards/print_settings.yml")

@@ -63,6 +63,7 @@ compositional_data:
     Mw_w: 18.015e-3
     Cw: 0
     Pw: 13.789514E6
+    mobility: True
 
   residual_saturations:
     Sorw: 0.35
@@ -89,6 +90,7 @@ compositional_data:
     Bin: [0]
     vshift_parameter: [-190]
     Pv: [0.]
+    Pb_guess: [0.]
 
 #water saturation data
 Saturation:

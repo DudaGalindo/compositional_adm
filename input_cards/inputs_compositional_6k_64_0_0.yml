@@ -28,7 +28,8 @@ monophasic_data:
 compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 1
-  MUSCL: False
+  MUSCL:
+    set: False
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [8640000, 17280000]
   maximum_time: 17280000
@@ -47,7 +48,7 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: .1
-    deltaSlim: .001
+    deltaSlim: .0025
     deltaVlim: .1
     delta_t_ini: 100
     delta_tmax: 86400
@@ -59,6 +60,7 @@ compositional_data:
     Mw_w: 18.015e-3
     Cw: 0 #4.35e-10
     Pw: 10.34e6
+    mobility: True
 
   residual_saturations:
     Sorw: 0.1

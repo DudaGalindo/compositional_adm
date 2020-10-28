@@ -14,10 +14,12 @@ class CompositionalFVM:
         r = 0.8 # enter the while loop
         psolve = TPFASolver(fprop)
         P_old = np.copy(fprop.P)
-
+        Nk_old = np.copy(fprop.Nk)
         while (r!=1.):
+            fprop.Nk = Nk_old
             fprop.P, total_flux_internal_faces, self.q = psolve.get_pressure(M, wells, fprop, delta_t)
 
+            #self.update_composition_RK3_1(fprop, fprop.Nk, delta_t)
             if ctes.MUSCL: wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces)
             else:
                 FOUM().update_flux(fprop, total_flux_internal_faces,
@@ -34,6 +36,7 @@ class CompositionalFVM:
             delta_t = delta_t_new
 
         self.update_composition(fprop, delta_t)
+        #self.update_composition_RK3_2(fprop, fprop.Nk, delta_t)
         return delta_t
 
     def update_gravity_term(self, fprop):

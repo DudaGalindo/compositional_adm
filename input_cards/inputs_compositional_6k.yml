@@ -29,12 +29,10 @@ compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 0.5
   MUSCL:
-    set: True
-    DW: False
-    LLF: True
+    set: False
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
-  time_to_save: [8640000, 17280000]
-  maximum_time: 17280000
+  time_to_save: [1000, 10000, 100000, 700000, 1080000, 2160000, 320000, 4320000, 5400000, 6480000, 7560000, 8640000, 9720000.0, 10800000.0, 11880000.0, 12960000.0, 14040000.0, 11448000.0, 15120000, 16200000.0, 17280000, 18360000, 19440000, 20520000, 21600000.0, 22896000.0, 23760000, 24840000.0, 25920000.0]
+  maximum_time: 8640000
   phase_viscosity: LorenzBrayClark
   relative_permeability: StoneII
   capillary_pressure: Chang
@@ -50,7 +48,7 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: .1
-    deltaSlim: .0015
+    deltaSlim: .003
     deltaVlim: .1
     delta_t_ini: 100
     delta_tmax: 86400
