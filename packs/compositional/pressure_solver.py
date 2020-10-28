@@ -45,8 +45,8 @@ class TPFASolver:
         t0 = (self.t0_internal_faces_prod).sum(axis = 1)
         t0 = t0 * ctes.pretransmissibility_internal_faces
         T = np.zeros([ctes.n_volumes, ctes.n_volumes])
-        #self.T_noCC_wp = np.zeros()
-        # Look for a way of doing this not using a loop
+
+        # Look for a way of doing this not using a loop!!!
         for i in range(ctes.n_components):
             lines = np.array([ctes.v0[:, 0], ctes.v0[:, 1], ctes.v0[:, 0], ctes.v0[:, 1]]).flatten()
             cols = np.array([ctes.v0[:, 1], ctes.v0[:, 0], ctes.v0[:, 0], ctes.v0[:, 1]]).flatten()

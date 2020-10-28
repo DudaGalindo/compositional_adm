@@ -548,3 +548,7 @@ class MUSCL:
         Fk_face_LLF = 0.5*(Fk_face_LLF_all.sum(axis=-1) - np.max(abs(alpha),axis=-1) * \
                     (Nk_face_LLF[:,:,1] - Nk_face_LLF[:,:,0]))
         return Fk_face_LLF, alpha
+        
+class FR:
+    def __init__(self):
+        'Enviroment for the FR/CPR method'
