@@ -30,11 +30,11 @@ class FOUM:
         np.sum(mobilities_internal_faces[0,...], axis = 0)
 
         self.Fj_internal_faces = frj[np.newaxis,...] * (Ft_internal_faces +
-        pretransmissibility_internal_faces * (np.sum(mobilities_internal_faces *
-        (Pcap_face[:,:,1] - Pcap_face[:,:,0] - ctes.g * rho_j_internal_faces *
-        (z_face[:,1] - z_face[:,0])), axis=1) - np.sum(mobilities_internal_faces,
-        axis=1) * (Pcap_face[:,:,1] - Pcap_face[:,:,0] - ctes.g *
-        rho_j_internal_faces * (z_face[:,1] - z_face[:,0]))))
+            pretransmissibility_internal_faces * (np.sum(mobilities_internal_faces *
+            (Pcap_face[:,:,1] - Pcap_face[:,:,0] - ctes.g * rho_j_internal_faces *
+            (z_face[:,1] - z_face[:,0])), axis=1) - np.sum(mobilities_internal_faces,
+            axis=1) * (Pcap_face[:,:,1] - Pcap_face[:,:,0] - ctes.g *
+            rho_j_internal_faces * (z_face[:,1] - z_face[:,0]))))
         # M.flux_faces[M.faces.internal] = Ft_internal_faces * M.faces.normal[M.faces.internal].T
 
     def update_Fk_internal_faces(self, xkj_internal_faces, Csi_j_internal_faces):
@@ -60,22 +60,22 @@ class MUSCL:
     """ Class created for the second order MUSCL implementation for the \
     calculation of the advective terms """
 
-    def run(self, M, fprop, wells, P_old, ftot):
+    def run(self, M, fprop, wells, P_old, ftot, order=1):
         ''' Global function that calls others '''
         self.Ft_internal_faces = ftot
         self.P_face = np.sum(P_old[ctes.v0], axis=1) * 0.5
         dNk_vols = self.volume_gradient_reconstruction(M, fprop, wells)
         dNk_face, dNk_face_neig = self.get_faces_gradient(M, fprop, dNk_vols)
 
-        order = data_loaded['compositional_data']['MUSCL']['order']
         if order == 2:
             Phi = self.Van_Leer_slope_limiter(dNk_face, dNk_face_neig)
             Nk_face, z_face = self.get_extrapolated_compositions(fprop, Phi, dNk_face_neig)
         elif order == 3:
             Phi_MLP, Theta_MLP2 = self.MLP_slope_limiter(M, fprop, np.copy(dNk_face_neig), dNk_face)
             Nk_face, z_face = self.get_extrapolated_compositions_MLP(fprop, Phi_MLP, Theta_MLP2, dNk_face_neig, dNk_face)
-        else: return ValueError('Order of the approximation for the MUSCL method does not exist. \
-        Please write 2 for second order or 3 for third order.')
+        else:
+            Phi = np.zeros_like(dNk_face_neig)
+            Nk_face, z_face = self.get_extrapolated_compositions(fprop, Phi, dNk_face_neig)
         #G = self.update_gravity_term() # for now, it has no gravity
         alpha = self.update_flux(M, fprop, Nk_face)
         return alpha
@@ -156,20 +156,15 @@ class MUSCL:
         '------------------------Seccond Order term----------------------------'
         delta_inf = dNk_face_neig/2
         delta_inf[:,:,1] = - delta_inf[:,:,1]
-        delta_sup = np.empty_like(dNk_face_neig)
-        Nk_aux = np.copy(fprop.Nk[:,ctes.v0])
-        Nk_aux_max = np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]
-        Nk_aux_max = np.concatenate((Nk_aux_max, Nk_aux_max),axis=2)
-        Nk_aux_min = np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]
-        Nk_aux_min = np.concatenate((Nk_aux_min, Nk_aux_min),axis=2)
-
-        delta_sup[delta_inf>0] = Nk_aux_max[delta_inf>0] - Nk_aux[delta_inf>0]
-        delta_sup[delta_inf<0] = Nk_aux_min[delta_inf<0] - Nk_aux[delta_inf<0]
-
+        Phi_MLP = np.ones_like(dNk_face_neig)
+        r = (dNk_face[:,:,np.newaxis]/(dNk_face_neig))
+        r[r<0] = 0
+        Phi_MLP[abs(dNk_face_neig)>=1e-10] = r[abs(dNk_face_neig)>=1e-10]
+        Phi_MLP[r > 1] = 1
         e2 = 0#(5 * (M.data['area'][M.faces.internal])**3)[np.newaxis,:,np.newaxis]
-        Phi_MLP = 1 / delta_inf * (((delta_sup**2 + e2) * delta_inf + 2 * delta_inf**2 * delta_sup)
-            / (delta_sup**2 + 2 * delta_inf**2 + delta_sup * delta_inf + e2))
-        Phi_MLP[delta_inf==0] = 0
+        #Phi_MLP = 1 / delta_inf * (((delta_sup**2 + e2) * delta_inf + 2 * delta_inf**2 * delta_sup)
+        #    / (delta_sup**2 + 2 * delta_inf**2 + delta_sup * delta_inf + e2))
+        #Phi_MLP[delta_inf==0] = 0
         #Nk_face = fprop.Nk[:,ctes.v0] + Phi_MLP*delta_inf
         #Phi_MLP[Nk_face < Nk_aux_min] = 0
         #Phi_MLP[Nk_face > Nk_aux_max] = 0
@@ -177,17 +172,31 @@ class MUSCL:
         '-------------------------Third Order term-----------------------------'
         Theta_MLP2 = np.ones_like(Phi_MLP)
         d2Nk_vols = dNk_face[:,:,np.newaxis] - dNk_face_neig
-        Nk_face = fprop.Nk[:,ctes.v0] + delta_inf
-        Nk_face = fprop.Nk[:,ctes.v0] + delta_inf + 1/8 * d2Nk_vols
-        cond1 = (Nk_face > np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]) * \
-            (dNk_face_neig > 0) * (d2Nk_vols < 0)
-        cond2 = (Nk_face < np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]) * \
-            (dNk_face_neig < 0) * (d2Nk_vols > 0)
+        aux_d2Nk = np.copy(d2Nk_vols)
+        d2Nk_vols[:,:,1] = - d2Nk_vols[:,:,1]
+
+        Nk_face = fprop.Nk[:,ctes.v0] + delta_inf #+ 1/8 * aux_d2Nk
+        cond1 = (Nk_face > np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis])
+        cond2 = (Nk_face < np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis])
         Theta_MLP2[cond1 + cond2] = 0
-        cond3 = (np.abs(delta_inf/fprop.Nk[:,ctes.v0]) <= 0.001)
-        Theta_MLP2[cond3] = 1
-        Theta_MLP2[Nk_face > np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]] = 0
-        Theta_MLP2[Nk_face < np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]] = 0
+
+        Nk_face = fprop.Nk[:,ctes.v0] + delta_inf + 1/8 * aux_d2Nk
+        cond3 = (Nk_face > np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]) * \
+            (dNk_face_neig > 0) * (d2Nk_vols < 0)
+        cond4 = (Nk_face < np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]) * \
+            (dNk_face_neig < 0) * (d2Nk_vols > 0)
+
+        Theta_MLP2_aux = Theta_MLP2[Theta_MLP2==0]
+        Theta_MLP2_aux[(cond3 + cond4)[Theta_MLP2==0]] = 1
+        #cond5 = (np.abs((Nk_face - fprop.Nk[:,ctes.v0])/fprop.Nk[:,ctes.v0]) <= 0.001)
+        #Theta_MLP2_aux[cond5[Theta_MLP2==0]] = 1
+        Theta_MLP2[Theta_MLP2==0] = Theta_MLP2_aux
+
+        #Theta_MLP2[Phi_MLP==0] = 0
+        #Nk_face = fprop.Nk[:,ctes.v0] + delta_inf + 1/8 * aux_d2Nk
+        #Theta_MLP2[Nk_face > np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]] = 0
+        #Theta_MLP2[Nk_face < np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]] = 0
+        #import pdb; pdb.set_trace()
 
         'Creating mapping between volumes and internal faces, to get minimum \
         value of the limiter projection at the face. It will be a value for \
@@ -214,15 +223,11 @@ class MUSCL:
         Theta_MLP2[:,:,1] = - Theta_MLP2[:,:,1]
         return Phi_MLP, Theta_MLP2
 
-
     def get_extrapolated_compositions_MLP(self, fprop, Phi_MLP, Theta_MLP2, dNk_face_neig, dNk_face):
         'Activating limiters at the faces of the contour control volumes '
-        r_face = dNk_face[:,:,np.newaxis] / dNk_face_neig
+        #r_face = dNk_face[:,:,np.newaxis] / dNk_face_neig
         d2Nk_vols = dNk_face[:,:,np.newaxis] - dNk_face_neig
-        Phi_MLP[r_face<0] = 0
-        Theta_MLP2[r_face<0] = 0
-
-        d2Nk_vols = dNk_face[:,:,np.newaxis] - dNk_face_neig
+        d2Nk_vols[:,:,1] = -d2Nk_vols[:,:,1]
         Nk_face = fprop.Nk[:,ctes.v0] + Phi_MLP/2 * dNk_face_neig + Theta_MLP2/8 * d2Nk_vols
         z_face = Nk_face[0:ctes.Nc] / np.sum(Nk_face[0:ctes.Nc], axis = 0)
         return Nk_face, z_face
@@ -548,7 +553,53 @@ class MUSCL:
         Fk_face_LLF = 0.5*(Fk_face_LLF_all.sum(axis=-1) - np.max(abs(alpha),axis=-1) * \
                     (Nk_face_LLF[:,:,1] - Nk_face_LLF[:,:,0]))
         return Fk_face_LLF, alpha
-        
+
 class FR:
     def __init__(self):
         'Enviroment for the FR/CPR method'
+        '1. Obtain Nk at the SP'
+        '2. Compute Fk with the mobility, xkj, rho and csi approximation from \
+        volume-weigthed arithmetic average'
+        '3. Transform Fk for the SP by using RTo'
+        '4. Approximate Fk and Nk in the reference domain by using Lagranges \
+        polynomial. Where Fk = Fk^D + Fk^C, where Fk^D and Fk^C are also obtained \
+        by using Lagranges polynomial with its value from the SP.'
+        '5. Use a Riemann Solver for computing flux at the interfaces'
+        '5. Obtain Nk for the next time step by the third order RungeKutta'
+        '6. Project the Nk solution at the SP back to the CV using Piolas \
+        transformation'
+
+    def Flux_SP(self, M, norm_coord_SP, n_points, Fk_face):
+        'RTo'
+        v = M.faces.normal(M.faces.internal)
+        phi_left =  1 / 4  * (1 - norm_coord_SP_reshaped)
+        phi_right = 1 / 4 * (1 + norm_coord_SP_reshaped)
+
+        Fk_face_vec = Fk_face[:,:,np.newaxis] * abs(v[np.newaxis,:,:])
+        Fk_left_face_vec = Fk_face_vec[:,:,:,np.newaxis] * phi_left.T[np.newaxis,np.newaxis,:,:]
+        Fk_right_face_vec = Fk_face_vec[:,:,:,np.newaxis] * phi_right.T[np.newaxis,np.newaxis,:,:]
+
+        Fk_left_face_vec_reshaped = np.concatenate(np.dsplit(Fk_left_face_vec, 3),axis=1)[:,,:,0,:]
+        Fk_left_face_vec_reshaped = np.concatenate(np.dsplit(Fk_left_face_vec_reshaped, n_points),axis=1)[...,0]
+        Fk_right_face_vec_reshaped = np.concatenate(np.dsplit(Fk_right_face_vec, 3),axis=1)[:,:,0,:]
+        Fk_right_face_vec_reshaped = np.concatenate(np.dsplit(Fk_right_face_vec_reshaped, n_points),axis=1)[...,0]
+
+        cx = np.arange(ctes.n_components)
+        lines = np.array([np.repeat(cx,len(ctes.v0[:,0])*3*n_points), np.repeat(cx,len(ctes.v0[:,1])*3*n_points)]).astype(int).flatten()
+        cols = np.array([np.tile(ctes.v0[:,0],ctes.n_components), np.tile(ctes.v0[:,1], ctes.n_components)]).flatten()
+        data = np.array([-Fk_left_face_vec_reshaped, Fk_right_face_vec_reshaped]).flatten()
+        Fk_SP_reshaped = sp.csc_matrix((data, (lines, cols)), shape = (ctes.n_components, ctes.n_volumes * 3 * n_points)).toarray()
+        Fk_SP = np.concatenate(np.hsplit(Fk_SP_reshaped[:,:,np.newaxis], n_points), axis = 2)
+        Fk_SP = np.concatenate(np.hsplit(Fk_SP_reshaped[:,:,:,np.newaxis], 3), axis = 3)
+        return Fk_SP
+
+    def Lagrange_poly(self, norm_coord_SP, n_points, interp_point_coords):
+        L = np.ones((n_points,3), dtype=object)
+        for i in range(n_points):
+            for j in range(n_points):
+                if j!=i:
+                    L[i,:] = L[i,:] * (interp_point_coords - norm_coord_SP[j]) * (1 / (norm_coord_SP[i] - norm_coord_SP[j]))
+        return L
+
+    def Flux_Discontinuous(self):
+        'do'
