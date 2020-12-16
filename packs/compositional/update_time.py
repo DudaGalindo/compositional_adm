@@ -29,7 +29,7 @@ class delta_time:
          CFL = data_loaded['compositional_data']['CFL']
          old_settings = np.seterr(all = 'ignore', divide = 'ignore')
          delta_tcfl = CFL * np.nanmin(abs(fprop.Nk) /
-                    abs(fprop.component_flux_vols_total)) #make nan
+                    abs(fprop.Fk_vols_total)) #make nan
          np.seterr(**old_settings)
          return delta_tcfl
 

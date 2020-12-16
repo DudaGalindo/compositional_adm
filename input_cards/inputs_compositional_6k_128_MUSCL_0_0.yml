@@ -48,7 +48,7 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: .1
-    deltaSlim: .003
+    deltaSlim: .002
     deltaVlim: .1
     delta_t_ini: 100
     delta_tmax: 86400

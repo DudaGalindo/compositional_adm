@@ -1,6 +1,6 @@
 import numpy as np
-from ..directories import data_loaded
-from ..utils import constants as ctes
+from packs.directories import data_loaded
+from packs.utils import constants as ctes
 from scipy import linalg
 import scipy.sparse as sp
 
@@ -53,14 +53,15 @@ class TPFASolver:
             data = np.array([-t0[i,:], -t0[i,:], +t0[i,:], +t0[i,:]]).flatten()
 
             Ta = (sp.csc_matrix((data, (lines, cols)), shape = (ctes.n_volumes, ctes.n_volumes))).toarray()
-            T += Ta * self.dVtk[i,:, np.newaxis]
+            T += Ta * self.dVtk[i, :, np.newaxis]
 
         T = T * delta_t
         ''' Transmissibility diagonal term '''
         diag = np.diag((ctes.Vbulk * ctes.porosity * ctes.Cf - self.dVtP))
         T += diag
 
-        self.T_noCC = np.copy(T)
+        self.T_noCC = np.copy(T) #Transmissibility without contour conditions
+
         ''' Includding contour conditions '''
         T[wells['ws_p'],:] = 0
         T[wells['ws_p'], wells['ws_p']] = 1
@@ -136,8 +137,8 @@ class TPFASolver:
         z = ctes.z[ctes.v0[:,0]]
         z_up = ctes.z[ctes.v0[:,1]]
         Ft_internal_faces = - np.sum(fprop.mobilities_internal_faces
-        * ctes.pretransmissibility_internal_faces * ((Pot_hidj_up - Pot_hidj) -
-        ctes.g * fprop.rho_j_internal_faces * (z_up - z)), axis = 1)
+            * ctes.pretransmissibility_internal_faces * ((Pot_hidj_up - Pot_hidj) -
+            ctes.g * fprop.rho_j_internal_faces * (z_up - z)), axis = 1)
         return Ft_internal_faces
 
     def update_flux_wells(self, fprop, wells, delta_t):
@@ -145,8 +146,8 @@ class TPFASolver:
 
         if len(wp)>=1:
             well_term =  (self.T_noCC[wp,:] @ self.P - self.pressure_term[wp] +
-            self.volume_term[wp]) / delta_t  + self.capillary_term[wp] + \
-            self.gravity_term[wp]
+                self.volume_term[wp]) / delta_t  + self.capillary_term[wp] + \
+                self.gravity_term[wp]
             mob_ratio = fprop.mobilities[:,:,wp] / \
             np.sum(fprop.mobilities[:,:,wp], axis = 1)
             self.q[:,wp] = np.sum(fprop.xkj[:,:,wp] * mob_ratio *

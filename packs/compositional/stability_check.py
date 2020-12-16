@@ -47,10 +47,10 @@ class StabilityCheck:
             ponteiro_aux[(np.round(sp1,13) > 1) + (np.round(sp2,13) > 1)] = True #os que devem passar para o calculo de flash
             ponteiro_flash[~ponteiro_flash] = ponteiro_aux
 
-        self.molar_properties(np.copy(ponteiro_flash)) #perform the actual flash
-
-        ponteiro_flash[self.L<0] = False
-        ponteiro_flash[self.L>1] = False
+        if any(ponteiro_flash):
+            self.molar_properties(np.copy(ponteiro_flash)) #perform the actual flash
+            ponteiro_flash[self.L<0] = False
+            ponteiro_flash[self.L>1] = False
         self.x[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
         self.y[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
 
@@ -104,16 +104,17 @@ class StabilityCheck:
         lj[0,1,:] = self.V[ponteiro_flash]
         xij[:,0,:] = self.x[:,ponteiro_flash]
         xij[:,1,:] = self.y[:,ponteiro_flash]
-        lnphiy = self.EOS.lnphi(self.y[:,ponteiro_flash], P_new[ponteiro_flash], self.ph_V[ponteiro_flash])
-        lnphix = self.EOS.lnphi(self.x[:,ponteiro_flash], P_new[ponteiro_flash], self.ph_L[ponteiro_flash])
-        lnphiz = self.EOS.lnphi(z_new[:,ponteiro_flash], P_new[ponteiro_flash], self.ph_L[ponteiro_flash])
-        lnphi_ij[:,0,:] = lnphix
-        lnphi_ij[:,1,:] = lnphiy
-        c1 = np.sum(np.sum(lj * xij * (np.log(xij) + lnphi_ij),axis = 0), axis = 0)
-        c2 = np.sum(z_new[:,ponteiro_flash] * (np.log(z_new[:,ponteiro_flash]) + lnphiz), axis = 0)
-        ponteiro_flash_aux = ponteiro_flash[ponteiro_flash]
-        ponteiro_flash_aux[c1 <= c2] = True
-        ponteiro_flash[ponteiro_flash] = ponteiro_flash_aux
+        if any(ponteiro_flash):
+            lnphiy = self.EOS.lnphi(self.y[:,ponteiro_flash], P_new[ponteiro_flash], self.ph_V[ponteiro_flash])
+            lnphix = self.EOS.lnphi(self.x[:,ponteiro_flash], P_new[ponteiro_flash], self.ph_L[ponteiro_flash])
+            lnphiz = self.EOS.lnphi(z_new[:,ponteiro_flash], P_new[ponteiro_flash], self.ph_L[ponteiro_flash])
+            lnphi_ij[:,0,:] = lnphix
+            lnphi_ij[:,1,:] = lnphiy
+            c1 = np.sum(np.sum(lj * xij * (np.log(xij) + lnphi_ij),axis = 0), axis = 0)
+            c2 = np.sum(z_new[:,ponteiro_flash] * (np.log(z_new[:,ponteiro_flash]) + lnphiz), axis = 0)
+            ponteiro_flash_aux = ponteiro_flash[ponteiro_flash]
+            ponteiro_flash_aux[c1 <= c2] = True
+            ponteiro_flash[ponteiro_flash] = ponteiro_flash_aux
         return ponteiro_flash
 
     def vapor_pressure_pure_substancies(self):

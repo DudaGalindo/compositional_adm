@@ -1,6 +1,6 @@
 #Compressive Oil case with 1 component in 1-D reservoir
 mesh_name: 500x1x1_6k.msh
-name_save_file: 'results_water_inj_6k_modified_case'
+name_save_file: 'results_water_inj_6k_modified_case_FR'
 
 compositional: True
 hidrocarbon_components: True
@@ -30,8 +30,11 @@ compositional_data:
   CFL: 0.5
   MUSCL:
     set: False
+  FR:
+    set: True
+    order: 3
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
-  time_to_save: [1000, 10000, 100000, 700000, 1080000, 2160000, 320000, 4320000, 5400000, 6480000, 7560000, 8640000, 9720000.0, 10800000.0, 11880000.0, 12960000.0, 14040000.0, 11448000.0, 15120000, 16200000.0, 17280000, 18360000, 19440000, 20520000, 21600000.0, 22896000.0, 23760000, 24840000.0, 25920000.0]
+  time_to_save: [8640000]
   maximum_time: 8640000
   phase_viscosity: LorenzBrayClark
   relative_permeability: StoneII

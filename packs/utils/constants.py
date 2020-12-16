@@ -17,10 +17,13 @@ def init(M, wells):
     global R
     global EOS_class
     global MUSCL
+    global FR
     global bhp_ind
+    global vols_no_wells
 
     EOS_class = getattr(equation_of_state, data_loaded['compositional_data']['equation_of_state'])
     MUSCL = data_loaded['compositional_data']['MUSCL']['set']
+    FR = data_loaded['compositional_data']['FR']['set']
     Pf = np.array(data_loaded['compositional_data']['Pf']).astype(float)
     Cf = np.array(data_loaded['compositional_data']['rock_compressibility']).astype(float)
     R = 8.3144598
@@ -32,6 +35,8 @@ def init(M, wells):
     n_internal_faces = len(v0[:,0])
     g = 9.80665
     z = -M.data['centroid_volumes'][:,2]
+    vols_index = M.volumes.all
+    vols_no_wells = np.setdiff1d(vols_index,wells['all_wells'])
     pretransmissibility_faces = M.data[M.data.variables_impress['pretransmissibility']]
     pretransmissibility_internal_faces = pretransmissibility_faces[ M.faces.internal]#[100]*np.ones(len(self.internal_faces))
     if len(wells['ws_p'])>1:

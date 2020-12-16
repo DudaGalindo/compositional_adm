@@ -1,7 +1,7 @@
 from packs.directories import data_loaded
 from packs import directories as direc
 from packs.running.compositional_initial_mesh_properties import initial_mesh
-from packs.compositional.compositionalIMPEC import CompositionalFVM
+from packs.compositional.IMPEC.compositionalIMPEC import CompositionalFVM
 from packs.compositional.stability_check import StabilityCheck
 from packs.compositional.properties_calculation import PropertiesCalc
 from packs.compositional.update_time import delta_time
@@ -35,6 +35,9 @@ class run_simulation:
         M, elements_lv0, data_impress, wells = initial_mesh(mesh, load=load, convert=convert)
         ctes.init(M, wells)
         ctes.component_properties()
+        if ctes.FR:
+            from packs.compositional import prep_FR as ctes_FR
+            ctes_FR.run(M)
         fprop = self.get_initial_properties(M, wells)
         return M, data_impress, wells, fprop, load
 
@@ -53,13 +56,12 @@ class run_simulation:
             fprop.Csi_j[:,1,:], fprop.rho_j[:,0,:], fprop.rho_j[:,1,:]  =  \
             self.p2.run_init(fprop.P, fprop.z)
 
-        else: fprop.x = []; fprop.y = []
+        else: fprop.x = []; fprop.y = []; fprop.L = []; fprop.V = []
         if ctes.load_w: fprop.inputs_water_properties(M) #load water properties
 
         '----------------------- Calculate fluid properties -------------------'
 
-        self.p1.run_outside_loop(M, fprop)
-
+        self.p1.run_outside_loop(M, fprop, wells)
         return fprop
 
     def run(self, M, wells, fprop, load):
@@ -121,13 +123,13 @@ class run_simulation:
 
     def get_empty_current_compositional_results(self):
         return [np.array(['loop', 'vpi [s]', 'simulation_time [s]', 't [s]', 'pressure [Pa]', 'Sw', 'So', 'Sg',
-                        'Oil_p', 'Gas_p', 'z', 'centroids'])]
+                        'Oil_p', 'Gas_p', 'z', 'centroids', 'Nk'])]
 
     def update_production(self, fprop, wells):
         ''' Function to compute oil and gas production rate [m³/s] through time'''
-
-        self.oil_production +=  abs(fprop.q_phase[:,0,:].sum()) *self.delta_t
-        self.gas_production +=  abs(fprop.q_phase[:,1,:].sum())*self.delta_t
+        if ctes.load_k:
+            self.oil_production +=  abs(fprop.q_phase[:,0,:].sum()) *self.delta_t
+            self.gas_production +=  abs(fprop.q_phase[:,1,:].sum())*self.delta_t
 
     def update_current_compositional_results(self, M, wells, fprop, simulation_time: float = 0.0):
 
@@ -136,7 +138,7 @@ class run_simulation:
 
         self.current_compositional_results = np.array([self.loop, self.vpi, simulation_time,
         self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
-        self.gas_production, fprop.z, M.data['centroid_volumes']],dtype=object)
+        self.gas_production, fprop.z, M.data['centroid_volumes'], fprop.Nk],dtype=object)
         self.all_results.append(self.current_compositional_results)
         M.data['saturation'] = fprop.Sw
         M.data['So'] = fprop.So

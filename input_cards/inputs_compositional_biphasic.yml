@@ -1,6 +1,6 @@
 #Buckley Leverett's horizontal case
 mesh_name: 500x1x1_b.msh
-name_save_file: 'results_Buckley_Leverett_caset'
+name_save_file: 'results_Buckley_Leverett_case_FR'
 
 compositional: True
 hidrocarbon_components: True
@@ -29,9 +29,10 @@ compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 0.5
   MUSCL:
+    set: True
+  FR:
     set: False
-    DW: False
-    LLF: False
+    order: 3
   vpis_para_gravar_vtk: [0.1, 0.15, 0.20]
   time_to_save: [0.0]
   maximum_time: 0.0
@@ -43,16 +44,16 @@ compositional_data:
   rock_compressibility: 0
   Pf: 13.79E6
 
-  #capillary pressure data - not ok with this
+  #capillary pressure data - no need - not working
   Cpc: 62052.84
   Epc: 2
 
   time_data:
     deltaPlim: 7
-    deltaNlim: 0.8
-    deltaSlim: 0.8
+    deltaNlim: 0.05
+    deltaSlim: 0.05
     deltaVlim: 1
-    delta_t_ini: 1.8
+    delta_t_ini: 0.1
     delta_tmax: 1000
     delta_tmin: 0.0001
     #2.765
@@ -63,6 +64,8 @@ compositional_data:
     Mw_w: 18.015e-3
     Cw: 0
     Pw: 13.789514E6
+    mobility: True
+    # if water is mobile: True, if not, False
 
   residual_saturations:
     Sorw: 0.35
@@ -121,7 +124,7 @@ Temperature:
 
 Wells:
   P1:
-    p0: [0.0, 0.0, 0.0]
+    p0: [0.0, 0.0, 0]
     p1: [0.0012192, 0.03048, 0.03048]
     prescription: Q
     type: Injector

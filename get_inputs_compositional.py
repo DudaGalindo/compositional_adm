@@ -3,8 +3,13 @@ from packs.directories import data_loaded
 from packs.utils import constants as ctes
 import numpy as np
 import os
+import yaml
 
-dd = InfoManager('input_cards/inputs_compositional.yml', 'input_cards/inputs0.yml')
+with open ('input_cards/input_file_name.yml','r') as f:
+    names_files_load = yaml.safe_load(f)
+    name_input_file_load = names_files_load['name_file']
+
+dd = InfoManager(name_input_file_load, 'input_cards/inputs0.yml')
 dd2 = InfoManager('input_cards/variable_inputs_compositional.yml','input_cards/variable_input.yml')
 dd['load_data'] = True
 dd.save_obj()

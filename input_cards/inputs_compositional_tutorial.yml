@@ -30,8 +30,9 @@ compositional_data:
   CFL: 1
   MUSCL:
     set: False
-    DW: False
-    LLF: False
+  FR:
+    set: True
+    order: 3
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [8640000, 17280000]
   maximum_time: 17280000 # tempo máximo de simulação
@@ -140,7 +141,7 @@ Wells:
     type: Injector # Tipo: Injector ou Producer
     type_region: box # região tipo box é onde da p0 e p1
     value: 0.00041377314814814814 # valor da variavel prescita, pode ser em m3/s ou mol/s, prescrever em value_type abaixo
-    z: [0., 0., 0., 0., 0., 0., 1.] # composição do fluido injetado (a ordem será:
+    z: [0., 0., 0., 0., 0., 0., 1.] # composição do fluido injetado (a ordem será: z = Nk/sum(Nk)
                                     # PRIMEIRO os componentes hidrocarbonetos, na ordem do
                                     # que foi escrito em component_data e POR ULTIMO a água )
     ksi_total: 55549.8 # densidade molar total do fluido injetado

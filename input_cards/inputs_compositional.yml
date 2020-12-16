@@ -1,6 +1,6 @@
 #Compressive Oil case with 1 component in 1-D reservoir
 mesh_name: 100x1x1.msh
-name_save_file: 'results_compressive_oil_caset2'
+name_save_file: 'results_compressive_oil_case_FR'
 
 compositional: True
 hidrocarbon_components: True
@@ -30,11 +30,12 @@ compositional_data:
   CFL: 0.5
   MUSCL:
     set: False
-    DW: False
-    LLF: False
+  FR:
+    set: True
+    order: 3
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
-  time_to_save: [274752, 432000., 589248.0, 745632., 902880, 1059264.0, 1216512., 1372896.0, 1530144.0]
-  maximum_time: 1530144.0
+  time_to_save: [274752] #, 432000., 589248.0, 745632., 902880, 1059264.0, 1216512., 1372896.0, 1530144.0]
+  maximum_time: 274752 #1530144.0
   phase_viscosity: LorenzBrayClark
   relative_permeability: BrooksAndCorey
   capillary_pressure: Chang
@@ -50,7 +51,7 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: .01
-    deltaSlim: .001
+    deltaSlim: .01
     deltaVlim: .0005
     delta_t_ini: 1000
     delta_tmax: 10000
@@ -62,6 +63,7 @@ compositional_data:
     Mw_w: 18.015e-3
     Cw: 0
     Pw: 13.79e6
+    mobility: False
 
   residual_saturations:
     Sorw: 0.1
