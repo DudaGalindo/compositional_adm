@@ -47,10 +47,12 @@ class StabilityCheck:
             ponteiro_aux[(np.round(sp1,13) > 1) + (np.round(sp2,13) > 1)] = True #os que devem passar para o calculo de flash
             ponteiro_flash[~ponteiro_flash] = ponteiro_aux
 
+
         if any(ponteiro_flash):
             self.molar_properties(np.copy(ponteiro_flash)) #perform the actual flash
             ponteiro_flash[self.L<0] = False
             ponteiro_flash[self.L>1] = False
+
         self.x[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
         self.y[:,~ponteiro_flash] = self.z[:,~ponteiro_flash]
 
@@ -70,9 +72,9 @@ class StabilityCheck:
         self.x = self.z
         self.y = self.z
         self.L[self.P > self.Pv] = 1
-        self.V[self.P > self.Pv] = 0.
         self.L[self.P < self.Pv] = 0.
-        self.V[self.P < self.Pv] = 1.
+        self.V = 1. - self.L
+        self.K = self.y/self.x
 
     def use_previous_K(self, P_new, z_new, ponteiro_flash):
         'Reference: Rezaveisi dissertation'
@@ -87,7 +89,6 @@ class StabilityCheck:
         ponteiro_K_aux[(cond1 >= 1) * (cond2 >= 1)] = True
         ponteiro_K[ponteiro_flash] = ponteiro_K_aux
         self.K[:,~ponteiro_K] = self.equilibrium_ratio_Wilson(P_new[~ponteiro_K])
-
 
     def skip_phase_stability_test(self, wells, P_new, z_new):
         'Two conditions are used here:\
@@ -415,7 +416,6 @@ class StabilityCheck:
             ponteiro[ponteiro] = ponteiro_aux
             ponteiro[abs(self.L) > 2] = False
             if i>100: ponteiro[ponteiro] = False
-
             #if np.isnan(self.V).any(): import pdb; pdb.set_trace()
 
     def get_dlnphidP(self, T, xij, P, ph):
@@ -438,7 +438,7 @@ class StabilityCheck:
         i = 0
 
 
-        Pb = ctes.Pb_guess*np.ones(len(self.P))#np.sum(self.z * self.Pv[:,np.newaxis], axis = 0) * 0.62
+        Pb = ctes.Pb_guess*np.ones(len(self.P)) #np.sum(self.z * self.Pv[:,np.newaxis], axis = 0) * 0.62
         #Pb = np.sum(self.z[:,ponteiro] * self.Pv[:,np.newaxis], axis = 0)
         K = np.exp(5.37 * (1 + ctes.w) * (1 - 1 / (self.T / ctes.Tc)), dtype=np.double)[:,np.newaxis] / \
                 (Pb / ctes.Pc[:,np.newaxis])
@@ -471,7 +471,6 @@ class StabilityCheck:
                 ponteiro[ponteiro] = False
                 break
                 print("Not converged - assuming its gas")
-
 
             if any(df == 0):
                 import pdb; pdb.set_trace()

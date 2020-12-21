@@ -124,7 +124,7 @@ class PropertiesCalc:
 
     def update_total_volume(self, fprop):
         fprop.Vt = np.sum(fprop.Nj / fprop.Csi_j, axis = 1).ravel()
-
+    
     def update_relative_permeabilities(self, fprop, So, Sg, Sw):
         saturations = np.array([So, Sg, Sw])
         kro,krg,krw, Sor = self.relative_permeability(fprop, saturations)
@@ -145,12 +145,14 @@ class PropertiesCalc:
             #phase_viscosities[0,0:2,:] = phase_viscosity(fprop, xkj)
         if ctes.load_w:
             phase_viscosities[0,ctes.n_phases-1,:] = data_loaded['compositional_data']['water_data']['mi_W']
+
         return phase_viscosities
 
     def update_mobilities(self, fprop, So, Sg, Sw, Csi_j, xkj):
         krs = self.update_relative_permeabilities(fprop, So, Sg, Sw)
         mis = self.update_phase_viscosities(fprop, Csi_j, xkj)
         mobilities = krs / mis
+
         return mobilities
 
     def update_capillary_pressure(self, fprop):

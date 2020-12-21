@@ -31,8 +31,8 @@ compositional_data:
   MUSCL:
     set: False
   FR:
-    set: True
-    order: 3
+    set: False
+    order: 2
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [274752] #, 432000., 589248.0, 745632., 902880, 1059264.0, 1216512., 1372896.0, 1530144.0]
   maximum_time: 274752 #1530144.0

@@ -63,7 +63,7 @@ def auxiliary_terms(M, points, n_points):
     v0 = np.copy(ctes.v0)
     v0[:,0] = ctes.v0[pos>0]
     v0[:,1] = ctes.v0[pos<0]
-
+    
     'Get neigboring cells values'
     vols_vec = -np.ones((ctes.n_volumes,2),dtype=int)
     lines = np.arange(ctes.n_internal_faces)
@@ -71,6 +71,7 @@ def auxiliary_terms(M, points, n_points):
     vols_vec[v0[:,1],0] = lines
     contour_vols = np.argwhere(vols_vec<0)[:,0]
     vols_vec[vols_vec < 0] = vols_vec[contour_vols,:][vols_vec[contour_vols]>=0]
+
     return x_points, v0, vols_vec
 
 def run(M):

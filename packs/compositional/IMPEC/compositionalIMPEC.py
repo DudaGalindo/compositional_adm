@@ -18,40 +18,45 @@ class CompositionalFVM:
         P_old = np.copy(fprop.P)
         Nk_old = np.copy(fprop.Nk)
         if ctes.FR: Nk_SP_old = np.copy(fprop.Nk_SP)
+
         while (r!=1.):
             fprop.Nk = np.copy(Nk_old)
-            fprop.P, total_flux_internal_faces, q = psolve.get_pressure(M, wells, fprop, delta_t)
+            fprop.P, total_flux_internal_faces, q = psolve.get_pressure(M, wells, fprop, P_old, delta_t)
 
             #wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces)
             #self.update_composition_RK3_1(fprop, fprop.Nk, delta_t)
 
             if ctes.MUSCL:
                 #order = data_loaded['compositional_data']['MUSCL']['order']
-                wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces, 2)
+                wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces)
             elif ctes.FR:
 
-                wave_velocity, Nk, z = FR().run(M, fprop, wells, total_flux_internal_faces, Nk_SP_old, P_old, q, delta_t)
+                wave_velocity, Nk, z, Nk_SP = FR().run(M, fprop, wells, total_flux_internal_faces, Nk_SP_old, P_old, q, delta_t)
 
             else:
-                self.get_faces_properties_upwind(fprop)
-                Flux().update_flux(fprop, total_flux_internal_faces,
+                UPW = Flux()
+                UPW.update_flux(fprop, total_flux_internal_faces,
                                      fprop.rho_j_internal_faces,
                                      fprop.mobilities_internal_faces)
-                wave_velocity = []
+                wave_velocity = UPW.wave_velocity_upw(fprop, total_flux_internal_faces)
 
 
             ''' For the composition calculation the time step might be different\
              because it treats composition explicitly and this explicit models \
              are conditionally stable - which can be based on the CFL parameter '''
 
-            delta_t_new = delta_time.update_CFL(delta_t, wells, fprop, wave_velocity)
+            delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
             r = delta_t_new/delta_t
             delta_t = delta_t_new
+            #import pdb; pdb.set_trace()
 
         if not ctes.FR:
             fprop.Nk, fprop.z = Euler().update_composition(fprop.Nk, q, fprop.Fk_vols_total, delta_t)
         else:
-            fprop.Nk = Nk; fprop.z = z
+            fprop.Nk = Nk; fprop.z = z; fprop.Nk_SP = Nk_SP
+        fprop.wave_velocity = wave_velocity
+        #qq = q
+        #import pdb; pdb.set_trace()
         return delta_t
 
     def update_gravity_term(self, fprop):

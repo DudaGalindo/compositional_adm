@@ -12,12 +12,11 @@ class delta_time:
         'the initialization of this class is made in a different time step \
         evaluation'
 
-    def update_CFL(delta_t, wells, fprop, wave_velocity):
+    def update_CFL(delta_t, Fk_vols_total, Nk, wave_velocity):
         CFL_p = data_loaded['compositional_data']['CFL']
         old_settings = np.seterr(all = 'ignore', divide = 'ignore')
-        CFL = delta_t * 1 / np.nanmin((fprop.Nk[fprop.Nk!=0] /
-                   abs(fprop.Fk_vols_total[fprop.Nk!=0])))
-        if ctes.MUSCL: CFL = delta_t * np.max(abs(wave_velocity))
+        CFL = delta_t * np.max(abs(wave_velocity))
+        #import pdb; pdb.set_trace()
         #CFL_wells = delta_t * 1 / np.nanmin((fprop.Nk[wells['ws_inj']] /
         #           abs(fprop.component_flux_vols_total[wells['ws_inj']])))
         if (CFL > CFL_p): delta_t = delta_t / 2
@@ -28,8 +27,9 @@ class delta_time:
     def update_delta_tcfl(self, delta_t, fprop):
          CFL = data_loaded['compositional_data']['CFL']
          old_settings = np.seterr(all = 'ignore', divide = 'ignore')
-         delta_tcfl = CFL * np.nanmin(abs(fprop.Nk) /
-                    abs(fprop.Fk_vols_total)) #make nan
+         delta_tcfl = CFL / np.max(abs(fprop.wave_velocity)) #make nan
+         if np.max(abs(fprop.wave_velocity))==0:
+             delta_tcfl = delta_t
          np.seterr(**old_settings)
          return delta_tcfl
 
@@ -81,13 +81,15 @@ class delta_time:
         delta_ts = self.update_delta_ts(delta_t, fprop, deltaSlim)
         delta_tn = self.update_delta_tn(delta_t, fprop, deltaNlim)
         delta_tv = self.update_delta_tv(delta_t, fprop, deltaVlim)
+        delta_tcfl = self.update_delta_tcfl(delta_t, fprop)
 
         'If only water present, the time-step calculation follows the CFL criteria\
         Else, it follows the compositional regular criteria'
-        if ctes.Cw == 0 and not load_k: delta_t = self.update_delta_tcfl(delta_t, fprop)
-        else: delta_t = min(delta_tp, delta_ts, delta_tn, delta_tv)
+        if ctes.Cw == 0 and not load_k: delta_t = delta_tcfl
+        else: delta_t = min(delta_tp, delta_ts, delta_tn, delta_tv, delta_tcfl)
+        delta_t = self.update_delta_tcfl(delta_t, fprop)
 
         if delta_t > delta_tmax: delta_t = delta_tmax
         if delta_t < delta_tmin: delta_t = delta_tmin
-
+        #import pdb; pdb.set_trace()
         return delta_t

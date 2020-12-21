@@ -8,13 +8,13 @@ class TPFASolver:
     def __init__(self, fprop):
         self.dVt_derivatives(fprop)
 
-    def get_pressure(self, M, wells, fprop, delta_t):
+    def get_pressure(self, M, wells, fprop, Pold, delta_t):
         T = self.update_transmissibility(M, wells, fprop, delta_t)
-        D = self.update_independent_terms(M, fprop, wells, delta_t)
-        self.update_pressure(T, D, fprop)
-        Ft_internal_faces = self.update_total_flux_internal_faces(M, fprop)
-        self.update_flux_wells(fprop, wells, delta_t)
-        return self.P, Ft_internal_faces, self.q
+        D = self.update_independent_terms(M, fprop, Pold, wells, delta_t)
+        Pnew = self.update_pressure(T, D, fprop)
+        Ft_internal_faces = self.update_total_flux_internal_faces(M, fprop, Pnew)
+        self.update_flux_wells(fprop, Pnew, wells, delta_t)
+        return Pnew, Ft_internal_faces, self.q
 
     def dVt_derivatives(self, fprop):
         self.dVtk = np.empty([ctes.n_components, ctes.n_volumes])
@@ -35,6 +35,7 @@ class TPFASolver:
         else: dVwP = np.zeros(ctes.n_volumes)
 
         self.dVtP = dVtP + dVwP
+
 
     def update_transmissibility(self, M, wells, fprop, delta_t):
         self.t0_internal_faces_prod = fprop.xkj_internal_faces * \
@@ -67,9 +68,9 @@ class TPFASolver:
         T[wells['ws_p'], wells['ws_p']] = 1
         return T
 
-    def pressure_independent_term(self, fprop):
+    def pressure_independent_term(self, fprop, Pold):
         vector = ctes.Vbulk * ctes.porosity * ctes.Cf - self.dVtP
-        pressure_term = vector * fprop.P
+        pressure_term = vector * Pold
         return pressure_term
 
     def capillary_and_gravity_independent_term(self, fprop):
@@ -104,6 +105,8 @@ class TPFASolver:
 
     def volume_discrepancy_independent_term(self, fprop):
         volume_discrepancy_term = fprop.Vp - fprop.Vt
+        if np.max(abs(volume_discrepancy_term)) > 5e-4:
+            import pdb; pdb.set_trace()
         return volume_discrepancy_term
 
     def well_term(self, fprop, wells):
@@ -116,22 +119,23 @@ class TPFASolver:
             self.q[:,wells['ws_q']], axis = 0)
         return well_term
 
-    def update_independent_terms(self, M, fprop, wells, delta_t):
-        self.pressure_term = self.pressure_independent_term(fprop)
+    def update_independent_terms(self, M, fprop, Pold, wells, delta_t):
+        self.pressure_term = self.pressure_independent_term(fprop, Pold)
         self.capillary_term, self.gravity_term = self.capillary_and_gravity_independent_term(fprop)
         self.volume_term = self.volume_discrepancy_independent_term(fprop)
         well_term = self.well_term(fprop, wells)
         independent_terms = self.pressure_term - self.volume_term  + delta_t * \
-        well_term - delta_t * (self.capillary_term + self.gravity_term)
+            well_term - delta_t * (self.capillary_term + self.gravity_term)
         independent_terms[wells['ws_p']] = wells['values_p'] + ctes.g * \
-        fprop.rho_j[0,0,wells['ws_p']] * (ctes.z[wells['ws_p']] - ctes.z[ctes.bhp_ind])
+            fprop.rho_j[0,0,wells['ws_p']] * (ctes.z[wells['ws_p']] - ctes.z[ctes.bhp_ind])
         return independent_terms
 
     def update_pressure(self, T, D, fprop):
-        self.P = linalg.solve(T,D)
+        P = linalg.solve(T,D)
+        return P
 
-    def update_total_flux_internal_faces(self, M, fprop):
-        Pot_hid = self.P + fprop.Pcap
+    def update_total_flux_internal_faces(self, M, fprop, Pnew):
+        Pot_hid = Pnew + fprop.Pcap
         Pot_hidj = Pot_hid[:,ctes.v0[:,0]]
         Pot_hidj_up = Pot_hid[:,ctes.v0[:,1]]
         z = ctes.z[ctes.v0[:,0]]
@@ -141,15 +145,14 @@ class TPFASolver:
             ctes.g * fprop.rho_j_internal_faces * (z_up - z)), axis = 1)
         return Ft_internal_faces
 
-    def update_flux_wells(self, fprop, wells, delta_t):
+    def update_flux_wells(self, fprop, Pnew, wells, delta_t):
         wp = wells['ws_p']
 
         if len(wp)>=1:
-            well_term =  (self.T_noCC[wp,:] @ self.P - self.pressure_term[wp] +
+            well_term =  (self.T_noCC[wp,:] @ Pnew - self.pressure_term[wp] +
                 self.volume_term[wp]) / delta_t  + self.capillary_term[wp] + \
                 self.gravity_term[wp]
-            mob_ratio = fprop.mobilities[:,:,wp] / \
-            np.sum(fprop.mobilities[:,:,wp], axis = 1)
-            self.q[:,wp] = np.sum(fprop.xkj[:,:,wp] * mob_ratio *
-            fprop.Csi_j[:,:,wp] * well_term, axis = 1)
+            mob_ratio = fprop.mobilities[:,:,wp] / np.sum(fprop.mobilities[:,:,wp], axis = 1)
+            self.q[:,wp] = np.sum(fprop.xkj[:,:,wp] * mob_ratio * fprop.Csi_j[:,:,wp] * well_term, axis = 1)
             fprop.q_phase = mob_ratio * well_term
+            

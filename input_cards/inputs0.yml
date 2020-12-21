@@ -35,7 +35,7 @@ Wells:
     - 0.0
     - -0.03048
     p1:
-    - 0.00238125
+    - 0.0047625
     - 0.03048
     - 0.0
     prescription: Q
@@ -48,7 +48,7 @@ Wells:
     - 1.0
   P2:
     p0:
-    - 0.60721875
+    - 0.6048375
     - 0.0
     - -0.03048
     p1:
@@ -65,10 +65,10 @@ compositional_data:
   Cpc: 62052.84
   Epc: 2
   FR:
-    order: 3
-    set: true
-  MUSCL:
+    order: 2
     set: false
+  MUSCL:
+    set: true
   Pf: 13.78951458E6
   capillary_pressure: Chang
   component_data:
@@ -93,7 +93,7 @@ compositional_data:
     z:
     - 1.0
   equation_of_state: PengRobinson
-  maximum_time: 129600000
+  maximum_time: 8640
   phase_viscosity: LorenzBrayClark
   relative_permeability: BrooksAndCorey
   relative_permeability_data:
@@ -110,15 +110,15 @@ compositional_data:
     Swr: 0.1
   rock_compressibility: 0
   time_data:
-    deltaNlim: 0.35
+    deltaNlim: 0.1
     deltaPlim: 68.9476
-    deltaSlim: 0.35
+    deltaSlim: 0.1
     deltaVlim: 0.1
     delta_t_ini: 10
     delta_tmax: 10000
     delta_tmin: 0.0001
   time_to_save:
-  - 129600000
+  - 8640
   vpis_para_gravar_vtk:
   - 0.1
   - 0.3
@@ -138,13 +138,13 @@ hidrocarbon_components: true
 load_compositional_data: false
 load_data: true
 load_operators: false
-mesh_name: 256x1x1_BL_D.msh
+mesh_name: 128x1x1_BL_D.msh
 monophasic_data:
   gama: 10000.0
   mi: 1.0
-name_save_file: results_BL_Darlan_256_FR
+name_save_file: results_BL_Darlan_128_MUSCL
 read_permeability: false
 set_permeability: true
 set_porosity: true
-use_vpi: true
+use_vpi: false
 water_component: true
