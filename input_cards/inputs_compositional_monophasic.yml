@@ -30,9 +30,9 @@ monophasic_data:
 compositional_data:
   CFL: 0.5
   MUSCL:
-    set: False
-  FR:
     set: True
+  FR:
+    set: False
     order: 3
   #  Pensar em um jeito de reorganizar isso
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
@@ -60,7 +60,7 @@ compositional_data:
     delta_tmin: 0.0001
   #rever isso de Cw=0 e Pw
   water_data:
-    mi_W: 0.000249
+    mi_W: 1e-3
     rho_W: 716.0253128
     Mw_w: 18.015e-3
     Cw: 0

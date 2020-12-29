@@ -2,15 +2,15 @@ Permeability:
   r1:
     type: all
     value:
-    - 4.934617e-13
+    - 1
     - 0
     - 0
     - 0
-    - 4.934617e-13
+    - 1
     - 0
     - 0
     - 0
-    - 4.934617e-13
+    - 1
 Porosity:
   r1:
     type: all
@@ -22,7 +22,7 @@ Pressure:
 Saturation:
   r1:
     type: all
-    value: 0.1
+    value: 1.0
 Temperature:
   r1:
     type: all
@@ -35,20 +35,19 @@ Wells:
     - 0.0
     - -0.03048
     p1:
-    - 0.0047625
+    - 0.001191015625
     - 0.03048
     - 0.0
     prescription: Q
     type: Injector
     type_region: box
-    value: 3.2774128e-08
+    value: 0
     value_type: volumetric
     z:
-    - 0.0
     - 1.0
   P2:
     p0:
-    - 0.6048375
+    - 0.6086089844
     - 0.0
     - -0.03048
     p1:
@@ -61,7 +60,7 @@ Wells:
     value: 25.579E6
 compositional: true
 compositional_data:
-  CFL: 0.3
+  CFL: 0.9
   Cpc: 62052.84
   Epc: 2
   FR:
@@ -93,7 +92,7 @@ compositional_data:
     z:
     - 1.0
   equation_of_state: PengRobinson
-  maximum_time: 8640
+  maximum_time: 1
   phase_viscosity: LorenzBrayClark
   relative_permeability: BrooksAndCorey
   relative_permeability_data:
@@ -110,39 +109,39 @@ compositional_data:
     Swr: 0.1
   rock_compressibility: 0
   time_data:
-    deltaNlim: 0.1
+    deltaNlim: 0.001
     deltaPlim: 68.9476
-    deltaSlim: 0.1
+    deltaSlim: 0.0001
     deltaVlim: 0.1
-    delta_t_ini: 10
-    delta_tmax: 10000
-    delta_tmin: 0.0001
+    delta_t_ini: 0.0001
+    delta_tmax: 0.0001
+    delta_tmin: 1.0e-06
   time_to_save:
-  - 8640
+  - 1
   vpis_para_gravar_vtk:
   - 0.1
   - 0.3
   - 0.5
   water_data:
     Cw: 0
-    Mw_w: 0.018015
+    Mw_w: 1
     Pw: 13.79e6
-    mi_W: 1e-3
+    mi_W: 1
     mobility: true
-    rho_W: 1000
+    rho_W: 1
 compressible_fluid: false
 convert_english_to_SI: false
 deletar_results: false
 gravity: false
-hidrocarbon_components: true
+hidrocarbon_components: false
 load_compositional_data: false
 load_data: true
 load_operators: false
-mesh_name: 128x1x1_BL_D.msh
+mesh_name: 512x1x1_BL_D.msh
 monophasic_data:
   gama: 10000.0
   mi: 1.0
-name_save_file: results_BL_Darlan_128_MUSCL
+name_save_file: results_Linear_adv_512_MUSCL
 read_permeability: false
 set_permeability: true
 set_porosity: true

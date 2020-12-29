@@ -87,8 +87,7 @@ class delta_time:
         Else, it follows the compositional regular criteria'
         if ctes.Cw == 0 and not load_k: delta_t = delta_tcfl
         else: delta_t = min(delta_tp, delta_ts, delta_tn, delta_tv, delta_tcfl)
-        delta_t = self.update_delta_tcfl(delta_t, fprop)
-
+        
         if delta_t > delta_tmax: delta_t = delta_tmax
         if delta_t < delta_tmin: delta_t = delta_tmin
         #import pdb; pdb.set_trace()

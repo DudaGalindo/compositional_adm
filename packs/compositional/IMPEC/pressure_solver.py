@@ -98,7 +98,7 @@ class TPFASolver:
                     cap += t0 @ fprop.Pcap[j,:]
 
         gravity_term = grav @ ctes.z
-
+    
         # capillary_term = np.sum(self.dVtk * np.sum (fprop.xkj *
         #         fprop.Csi_j * fprop.mobilities * fprop.Pcap, axis = 1), axis = 0)
         return cap, gravity_term
@@ -106,7 +106,8 @@ class TPFASolver:
     def volume_discrepancy_independent_term(self, fprop):
         volume_discrepancy_term = fprop.Vp - fprop.Vt
         if np.max(abs(volume_discrepancy_term)) > 5e-4:
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
+            print('hit')
         return volume_discrepancy_term
 
     def well_term(self, fprop, wells):
@@ -116,7 +117,7 @@ class TPFASolver:
         if len(wells['ws_q']) > 0:
             self.q[:,wells['ws_q']] =  wells['values_q']
             well_term[wells['ws_q']] = np.sum(self.dVtk[:,wells['ws_q']] *
-            self.q[:,wells['ws_q']], axis = 0)
+                self.q[:,wells['ws_q']], axis = 0)
         return well_term
 
     def update_independent_terms(self, M, fprop, Pold, wells, delta_t):
@@ -155,4 +156,3 @@ class TPFASolver:
             mob_ratio = fprop.mobilities[:,:,wp] / np.sum(fprop.mobilities[:,:,wp], axis = 1)
             self.q[:,wp] = np.sum(fprop.xkj[:,:,wp] * mob_ratio * fprop.Csi_j[:,:,wp] * well_term, axis = 1)
             fprop.q_phase = mob_ratio * well_term
-            

@@ -5,14 +5,17 @@ import numpy as np
 from packs.utils import constants as ctes
 from packs.directories import data_loaded
 from .composition_solver import Euler, RK3
+import math
 
 class CompositionalFVM:
 
-    def __call__(self, M, wells, fprop, delta_t):
+    def __call__(self, M, wells, fprop, delta_t, t):
         self.update_gravity_term(fprop)
+
         if ctes.MUSCL or ctes.FR: self.get_faces_properties_average(fprop)
         else: self.get_faces_properties_upwind(fprop)
         self.get_phase_densities_internal_faces(fprop)
+
         r = 0.8 # enter the while loop
         psolve = TPFASolver(fprop)
         P_old = np.copy(fprop.P)
@@ -21,17 +24,21 @@ class CompositionalFVM:
 
         while (r!=1.):
             fprop.Nk = np.copy(Nk_old)
-            fprop.P, total_flux_internal_faces, q = psolve.get_pressure(M, wells, fprop, P_old, delta_t)
+            #fprop.P, total_flux_internal_faces, q = psolve.get_pressure(M, wells, fprop, P_old, delta_t)
+            v = np.ones((1,ctes.n_internal_faces))
 
-            #wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces)
-            #self.update_composition_RK3_1(fprop, fprop.Nk, delta_t)
+            q = np.zeros_like(fprop.Nk)
+            #total_flux_internal_faces_1 = v * fprop.Nk[:,ctes.v0[:,0]] * ctes.pretransmissibility_internal_faces
+            total_flux_internal_faces = v
+            dd = q
 
             if ctes.MUSCL:
                 #order = data_loaded['compositional_data']['MUSCL']['order']
-                wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces)
-            elif ctes.FR:
+                wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces, t, delta_t)
 
-                wave_velocity, Nk, z, Nk_SP = FR().run(M, fprop, wells, total_flux_internal_faces, Nk_SP_old, P_old, q, delta_t)
+            elif ctes.FR:
+                wave_velocity, Nk, z, Nk_SP = FR().run(M, fprop, wells,
+                    total_flux_internal_faces, Nk_SP_old, P_old, q, delta_t, t)
 
             else:
                 UPW = Flux()
@@ -48,10 +55,24 @@ class CompositionalFVM:
             delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
             r = delta_t_new/delta_t
             delta_t = delta_t_new
-            #import pdb; pdb.set_trace()
 
         if not ctes.FR:
-            fprop.Nk, fprop.z = Euler().update_composition(fprop.Nk, q, fprop.Fk_vols_total, delta_t)
+
+            Nk_ghost0 = Nk_old[:,-1]
+            Nk_ghostN1 = Nk_old[:,0]
+            #import pdb; pdb.set_trace()
+            #x0 = min((Nk_old[0,0] - Nk_ghost0), (Nk_old[0,1] - Nk_old[0,0]))
+            #xN1 = min((Nk_ghostN1- Nk_old[0,-1]), (Nk_old[0,-2] - Nk_old[0,-1]))
+            fprop.Fk_vols_total[:,0] = -((Nk_old[:,1] - Nk_ghost0))/(2*2/ctes.n_volumes)
+            fprop.Fk_vols_total[:,-1] = -(Nk_ghostN1- Nk_old[:,-2])/(2*2/ctes.n_volumes)
+            fprop.Nk[:,], fprop.z = Euler().update_composition(fprop.Nk[:,], q[:,],
+                fprop.Fk_vols_total[:,], delta_t)
+
+            #fprop.Nk[:,0] = fprop.Nk[:,-2]  + (fprop.Nk[:,1] - fprop.Nk[:,-2])/(2)
+            #fprop.Nk[:,-1] = fprop.Nk[:,-2]  + (fprop.Nk[:,-2] - fprop.Nk[:,1])/(2)
+
+            #import pdb; pdb.set_trace()
+            #fprop.Nk[0,wells['all_wells']] = np.sin(math.pi*(t+delta_t - x))
         else:
             fprop.Nk = Nk; fprop.z = z; fprop.Nk_SP = Nk_SP
         fprop.wave_velocity = wave_velocity

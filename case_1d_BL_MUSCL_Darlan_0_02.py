@@ -66,7 +66,7 @@ for  arq in arquivos:
 
         for data in datas[datas.shape[0]-1:]:
             Sw8 = data[5]
-            x8 = np.linspace(0,1,8)
+            x8 = np.linspace(x[-1],1,8)
             n = 8
             e8_L1_MUSCL = (sum(abs(f(x8)-Sw8))*(1/n))
 
@@ -74,7 +74,7 @@ for  arq in arquivos:
 
         for data in datas[datas.shape[0]-1:]:
             Sw16 = data[5]
-            x16 = np.linspace(0,1,16)
+            x16 = np.linspace(x[-1],1,16)
             n = 16
             e16_L1_MUSCL = (sum(abs(f(x16)-Sw16))*(1/n))
 
@@ -82,7 +82,7 @@ for  arq in arquivos:
 
         for data in datas[datas.shape[0]-1:]:
             Sw32 = data[5]
-            x32 = np.linspace(0,1,32)
+            x32 = np.linspace(x[-1],1,32)
             n = 32
             e32_L1_MUSCL = (sum(abs(f(x32)-Sw32))*(1/n))
 
@@ -90,7 +90,7 @@ for  arq in arquivos:
 
         for data in datas[datas.shape[0]-1:]:
             Sw64 = data[5]
-            x64 = np.linspace(0,1,64)
+            x64 = np.linspace(xD[-1],1,64)
             n = 64
             e64_L1_MUSCL = (sum(abs(f(x64)-Sw64))*(1/n))
 
@@ -98,7 +98,7 @@ for  arq in arquivos:
 
         for data in datas[datas.shape[0]-1:]:
             Sw128 = data[5]
-            x128 = np.linspace(0,1,128)
+            x128 = np.linspace(xD[-1],1,128)
             n = 128
             e128_L1_MUSCL = (sum(abs(f(x128)-Sw128))*(1/n))
 
@@ -106,7 +106,7 @@ for  arq in arquivos:
 
         for data in datas[datas.shape[0]-1:]:
             Sw256 = data[5]
-            x256 = np.linspace(0,1,256)
+            x256 = np.linspace(xD[-1],1,256)
             n = 256
             e256_L1_MUSCL = (sum(abs(f(x256)-Sw256))*(1/n))
 
@@ -114,7 +114,7 @@ for  arq in arquivos:
 
         for data in datas[datas.shape[0]-1:]:
             Sw512 = data[5]
-            x512 = np.linspace(0,1,512)
+            x512 = np.linspace(xD[-1],1,512)
             n = 512
             e512_L1_MUSCL = (sum(abs(f(x512)-Sw512))*(1/n))
 

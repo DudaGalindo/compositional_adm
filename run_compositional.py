@@ -74,7 +74,7 @@ class run_simulation:
         '---- Get pressure field and new time step (if the past time step does \
         not obey the CFL condition) -------------------------------------------'
 
-        self.delta_t = CompositionalFVM()(M, wells, fprop, self.delta_t)
+        self.delta_t = CompositionalFVM()(M, wells, fprop, self.delta_t, self.t)
 
         self.t += self.delta_t
 
