@@ -135,10 +135,11 @@ class run_simulation:
 
         #total_flux_internal_faces = fprop.total_flux_internal_faces.ravel() #* M.faces.normal[M.faces.internal]
         #total_flux_internal_faces_vector = fprop.total_flux_internal_faces.T * np.abs(M.faces.normal[M.faces.internal])
-
+        if ctes.FR: Nk = fprop.Nk_SP
+        else: Nk = fprop.Nk
         self.current_compositional_results = np.array([self.loop, self.vpi, simulation_time,
         self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
-        self.gas_production, fprop.z, M.data['centroid_volumes'], fprop.Nk_SP],dtype=object)
+        self.gas_production, fprop.z, M.data['centroid_volumes'], Nk],dtype=object)
         self.all_results.append(self.current_compositional_results)
         M.data['saturation'] = fprop.Sw
         M.data['So'] = fprop.So

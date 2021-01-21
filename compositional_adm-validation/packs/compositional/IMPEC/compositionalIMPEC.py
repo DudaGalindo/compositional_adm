@@ -41,38 +41,26 @@ class CompositionalFVM:
                     total_flux_internal_faces, Nk_SP_old, P_old, q, delta_t, t)
 
             else:
+
                 UPW = Flux()
                 UPW.update_flux(fprop, total_flux_internal_faces,
                                      fprop.rho_j_internal_faces,
                                      fprop.mobilities_internal_faces)
                 wave_velocity = UPW.wave_velocity_upw(fprop, total_flux_internal_faces)
 
-
             ''' For the composition calculation the time step might be different\
              because it treats composition explicitly and this explicit models \
              are conditionally stable - which can be based on the CFL parameter '''
 
-            delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
-            r = delta_t_new/delta_t
-            delta_t = delta_t_new
+            #delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
+            #r = delta_t_new/delta_t
+            r=1
+            #delta_t = delta_t_new
 
         if not ctes.FR:
+            fprop.Nk, fprop.z = Euler().update_composition(fprop.Nk, q,
+                fprop.Fk_vols_total, delta_t)
 
-            Nk_ghost0 = Nk_old[:,-1]
-            Nk_ghostN1 = Nk_old[:,0]
-            #import pdb; pdb.set_trace()
-            #x0 = min((Nk_old[0,0] - Nk_ghost0), (Nk_old[0,1] - Nk_old[0,0]))
-            #xN1 = min((Nk_ghostN1- Nk_old[0,-1]), (Nk_old[0,-2] - Nk_old[0,-1]))
-            fprop.Fk_vols_total[:,0] = -((Nk_old[:,1] - Nk_ghost0))/(2*2/ctes.n_volumes)
-            fprop.Fk_vols_total[:,-1] = -(Nk_ghostN1- Nk_old[:,-2])/(2*2/ctes.n_volumes)
-            fprop.Nk[:,], fprop.z = Euler().update_composition(fprop.Nk[:,], q[:,],
-                fprop.Fk_vols_total[:,], delta_t)
-
-            #fprop.Nk[:,0] = fprop.Nk[:,-2]  + (fprop.Nk[:,1] - fprop.Nk[:,-2])/(2)
-            #fprop.Nk[:,-1] = fprop.Nk[:,-2]  + (fprop.Nk[:,-2] - fprop.Nk[:,1])/(2)
-
-            #import pdb; pdb.set_trace()
-            #fprop.Nk[0,wells['all_wells']] = np.sin(math.pi*(t+delta_t - x))
         else:
             fprop.Nk = Nk; fprop.z = z; fprop.Nk_SP = Nk_SP
         fprop.wave_velocity = wave_velocity
@@ -85,9 +73,10 @@ class CompositionalFVM:
 
     def get_faces_properties_upwind(self, fprop):
         ''' Using one-point upwind approximation '''
-        Pot_hid = fprop.P + fprop.Pcap - self.G[0,:,:]
+        Pot_hid = (fprop.Nk**2)/2*0  #fprop.P + fprop.Pcap - self.G[0,:,:]
         Pot_hidj = Pot_hid[:,ctes.v0[:,0]]
         Pot_hidj_up = Pot_hid[:,ctes.v0[:,1]]
+
 
         fprop.mobilities_internal_faces = np.zeros([1, ctes.n_phases, ctes.n_internal_faces])
         mobilities_vols = fprop.mobilities[:,:,ctes.v0[:,0]]
@@ -107,6 +96,11 @@ class CompositionalFVM:
         fprop.xkj_internal_faces[:,Pot_hidj_up <= Pot_hidj] = xkj_vols[:,Pot_hidj_up <= Pot_hidj]
         fprop.xkj_internal_faces[:,Pot_hidj_up > Pot_hidj] = xkj_vols_up[:,Pot_hidj_up > Pot_hidj]
 
+        'TESTAR'
+        a = (fprop.Nk - abs(fprop.Nk))/2
+        a = a[:,ctes.v0]
+        fprop.Csi_j_internal_faces[a>=0] = Csi_j_vols[a>=0]
+        fprop.Csi_j_internal_faces[a<0] = Csi_j_vols_up[a<0]
 
     def get_faces_properties_average(self, fprop):
         fprop.mobilities_internal_faces = (fprop.Vp[ctes.v0[:,0]] * fprop.mobilities[:,:,ctes.v0[:,0]] +

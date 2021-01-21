@@ -35,7 +35,7 @@ Wells:
     - 0.0
     - -0.03048
     p1:
-    - 0.0047625
+    - 0.001191015625
     - 0.03048
     - 0.0
     prescription: Q
@@ -47,7 +47,7 @@ Wells:
     - 1.0
   P2:
     p0:
-    - 0.6048375
+    - 0.6086089844
     - 0.0
     - -0.03048
     p1:
@@ -60,11 +60,11 @@ Wells:
     value: 25.579E6
 compositional: true
 compositional_data:
-  CFL: 0.9
+  CFL: 0.3
   Cpc: 62052.84
   Epc: 2
   FR:
-    order: 5
+    order: 4
     set: true
   MUSCL:
     set: false
@@ -92,7 +92,7 @@ compositional_data:
     z:
     - 1.0
   equation_of_state: PengRobinson
-  maximum_time: 1
+  maximum_time: 1.5
   phase_viscosity: LorenzBrayClark
   relative_permeability: BrooksAndCorey
   relative_permeability_data:
@@ -113,11 +113,11 @@ compositional_data:
     deltaPlim: 68.9476
     deltaSlim: 0.0001
     deltaVlim: 0.1
-    delta_t_ini: 4.0e-05
-    delta_tmax: 4.0e-05
-    delta_tmin: 5.0e-06
+    delta_t_ini: 0.0003
+    delta_tmax: 0.0003
+    delta_tmin: 1.0e-05
   time_to_save:
-  - 1
+  - 1.5
   vpis_para_gravar_vtk:
   - 0.1
   - 0.3
@@ -137,11 +137,11 @@ hidrocarbon_components: false
 load_compositional_data: false
 load_data: true
 load_operators: false
-mesh_name: 128x1x1_BL_D.msh
+mesh_name: 80x1x1_Burger.msh
 monophasic_data:
   gama: 10000.0
   mi: 1.0
-name_save_file: results_Linear_adv_128_FR5
+name_save_file: results_Burger_80_FR4
 read_permeability: false
 set_permeability: true
 set_porosity: true
