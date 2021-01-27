@@ -53,13 +53,13 @@ class WellsCompositional(Wells):
                     if value_type == 'volumetric':
                         values = (1 - well['z'][-1]) * well['ksi_total'] * val
                         values[-1] = val[-1] * well['ksi_total']
-                    
+
                     vals = np.repeat(values, nv)
                     if len(values_q)>0:
                         vals = (vals).reshape((len(well['z']),nv))
                         values_q = np.concatenate((values_q,vals), axis=1)
-                        values_q_v = (values_q / well['ksi_total']).sum(axis=0)
-                        values_q_vol = np.concatenate(values_q_vol, values_q_v, axis=1)
+                        values_q_v = (vals / well['ksi_total']).sum(axis=0)
+                        values_q_vol = np.concatenate((values_q_vol, values_q_v), axis=0)
                     else:
                         values_q = np.append(values_q, vals).reshape((len(well['z']),nv))
                         values_q_vol = (values_q / well['ksi_total']).sum(axis=0)

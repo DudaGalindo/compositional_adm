@@ -1,17 +1,19 @@
 'Function created to plot analytical solution for the water saturation profile  \
 for the buckley leverett problem'
+import numpy as np
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 'DATA ENTRY'
 krw_end = 1
 kro_end = 1
 nw = 2
 no = 2
-Swr = 0.1
-Sor = 0.1
-mi_w = 1
-mi_o = 1
+Swr = 0.
+Sor = 0.
+mi_w = 1e-3
+mi_o = 1e-3
 Sw = np.linspace(Swr, 1-Sor, 100000)
-td = 0.5
+td = 0.648
 
 'CALCULATION'
 S = (Sw - Swr)/(1 - Swr - Sor)
@@ -29,7 +31,7 @@ diff_fw = p2(Sw)
 
 ## Find the saturation shock:
 for n in range(1, 100000):
-    if abs((fw[n] - 0)/(Sw[n]-Swr) - diff_fw[n]) < 0.009:
+    if abs((fw[n] - 0)/(Sw[n]-Swr) - diff_fw[n]) < 0.0009:
         Swf = Sw[n]
         slope_Swf = (fw[n])/(Sw[n]-Swr)
         a = n
@@ -57,11 +59,13 @@ xD = np.append(xD1,xD2)
 xD = np.append(xD,xD3)
 SwD = np.append(Sw1,Sw2)
 SwD = np.append(SwD,Sw3)
-f = interp1d(xD,SwD)
 
-file = open('Sw_BL_Darlan_analytical.txt', w)
 
-file.write(SwD)
+with open('Sw_BL_FR_analytical.txt', 'w') as f:
+    for item in SwD:
+        f.write("%s\n" % item)
 
-file2 = open('x_BL_Darlan_analytical.txt', w)
-file2.write(xD)
+with open('x_BL_FR_analytical.txt', 'w') as f:
+    for item in xD:
+        f.write("%s\n" % item)
+import pdb; pdb.set_trace()

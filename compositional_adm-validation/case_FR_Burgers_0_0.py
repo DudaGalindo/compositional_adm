@@ -156,8 +156,8 @@ for arq in arquivos:
             import pdb; pdb.set_trace()
 
         '---------------------------Flux Reconstruction------------------------'
-        datas = np.load('flying/results_Burger_8_FR3_600.npy', allow_pickle=True)
-
+        #datas = np.load('flying/results_Burger_8_FR3_600.npy', allow_pickle=True)
+        datas = np.load('flying/results_Burger_8_FR3t_300.npy', allow_pickle=True)
         for data in datas[1:]:
             Nk8_FR3 = data[12][0].flatten()
             n = 8
@@ -173,7 +173,8 @@ for arq in arquivos:
 
             e8_L1_3 = np.sum(abs(Nk8_ans_3 - Nk8_FR3)) * 1 / n
 
-        datas = np.load('flying/results_Burger_16_FR3_1000.npy', allow_pickle=True)
+        #datas = np.load('flying/results_Burger_16_FR3_1000.npy', allow_pickle=True)
+        datas = np.load('flying/results_Burger_16_FR3t_600.npy', allow_pickle=True)
 
         for data in datas[1:]:
             Nk16_FR3 = data[12][0].flatten()
@@ -188,6 +189,7 @@ for arq in arquivos:
 
             e16_L1_3 = np.sum(abs(Nk16_ans_3 - Nk16_FR3)) * 1 / n
             R16_3 = math.log(e8_L1_3/e16_L1_3,2)
+            import pdb; pdb.set_trace()
 
         datas = np.load('flying/results_Burger_32_FR3_3001.npy', allow_pickle=True)
 

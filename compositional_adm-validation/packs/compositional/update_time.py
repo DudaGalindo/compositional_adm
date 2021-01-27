@@ -20,6 +20,7 @@ class delta_time:
         #CFL_wells = delta_t * 1 / np.nanmin((fprop.Nk[wells['ws_inj']] /
         #           abs(fprop.component_flux_vols_total[wells['ws_inj']])))
         if (CFL > CFL_p): delta_t = delta_t / 2
+
         #delta_tcfl = np.nanmin(CFL * (fprop.Nk) / fprop.component_flux_vols_total, axis = 1) #make nan
         np.seterr(**old_settings)
         return delta_t
@@ -31,6 +32,9 @@ class delta_time:
          if np.max(abs(fprop.wave_velocity))==0:
              delta_tcfl = delta_t
          np.seterr(**old_settings)
+         if ctes.FR:
+             from packs.compositional import prep_FR as ctes_FR
+             delta_tcfl = delta_tcfl/(2*(ctes_FR.n_points-1)+1)
          return delta_tcfl
 
     def update_delta_tp(self, delta_t, fprop, deltaPlim):
@@ -90,5 +94,4 @@ class delta_time:
 
         if delta_t > delta_tmax: delta_t = delta_tmax
         if delta_t < delta_tmin: delta_t = delta_tmin
-        #import pdb; pdb.set_trace()
         return delta_t

@@ -23,12 +23,17 @@ class CompositionalFVM:
         if ctes.FR: Nk_SP_old = np.copy(fprop.Nk_SP)
 
         while (r!=1.):
+
             fprop.Nk = np.copy(Nk_old)
             #fprop.P, total_flux_internal_faces, q = psolve.get_pressure(M, wells, fprop, P_old, delta_t)
-            v = np.ones((1,ctes.n_internal_faces))
+            v = np.ones((1,ctes.n_internal_faces)) * 3e-7
 
             q = np.zeros_like(fprop.Nk)
-            #total_flux_internal_faces_1 = v * fprop.Nk[:,ctes.v0[:,0]] * ctes.pretransmissibility_internal_faces
+
+            q[:,wells['all_wells']] = wells['values_q']
+            fprop.q_phase = np.zeros_like(fprop.Nj)
+            fprop.q_phase[-1,:] = q[-1,:]
+
             total_flux_internal_faces = v
             dd = q
 
@@ -39,9 +44,7 @@ class CompositionalFVM:
             elif ctes.FR:
                 wave_velocity, Nk, z, Nk_SP = FR().run(M, fprop, wells,
                     total_flux_internal_faces, Nk_SP_old, P_old, q, delta_t, t)
-
             else:
-
                 UPW = Flux()
                 UPW.update_flux(fprop, total_flux_internal_faces,
                                      fprop.rho_j_internal_faces,
@@ -54,8 +57,8 @@ class CompositionalFVM:
 
             #delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
             #r = delta_t_new/delta_t
+            #if r>1: delta_t = delta_t_new
             r=1
-            #delta_t = delta_t_new
 
         if not ctes.FR:
             fprop.Nk, fprop.z = Euler().update_composition(fprop.Nk, q,
@@ -64,8 +67,7 @@ class CompositionalFVM:
         else:
             fprop.Nk = Nk; fprop.z = z; fprop.Nk_SP = Nk_SP
         fprop.wave_velocity = wave_velocity
-        #qq = q
-        #import pdb; pdb.set_trace()
+
         return delta_t
 
     def update_gravity_term(self, fprop):
@@ -73,7 +75,7 @@ class CompositionalFVM:
 
     def get_faces_properties_upwind(self, fprop):
         ''' Using one-point upwind approximation '''
-        Pot_hid = (fprop.Nk**2)/2*0  #fprop.P + fprop.Pcap - self.G[0,:,:]
+        Pot_hid = fprop.P + fprop.Pcap - self.G[0,:,:]
         Pot_hidj = Pot_hid[:,ctes.v0[:,0]]
         Pot_hidj_up = Pot_hid[:,ctes.v0[:,1]]
 
@@ -97,10 +99,10 @@ class CompositionalFVM:
         fprop.xkj_internal_faces[:,Pot_hidj_up > Pot_hidj] = xkj_vols_up[:,Pot_hidj_up > Pot_hidj]
 
         'TESTAR'
-        a = (fprop.Nk - abs(fprop.Nk))/2
+        '''a = (fprop.Nk - abs(fprop.Nk))/2
         a = a[:,ctes.v0]
         fprop.Csi_j_internal_faces[a>=0] = Csi_j_vols[a>=0]
-        fprop.Csi_j_internal_faces[a<0] = Csi_j_vols_up[a<0]
+        fprop.Csi_j_internal_faces[a<0] = Csi_j_vols_up[a<0]'''
 
     def get_faces_properties_average(self, fprop):
         fprop.mobilities_internal_faces = (fprop.Vp[ctes.v0[:,0]] * fprop.mobilities[:,:,ctes.v0[:,0]] +

@@ -104,11 +104,6 @@ class RiemannSolvers:
 
     def LLF(self, M, fprop, Nk_face, P_face, ftotal, Fk_face, ponteiro):
         alpha = self.wave_velocity(M, fprop, Nk_face, P_face, ftotal, np.copy(~ponteiro))
-        #alpha = (Fk_face[:,:,1] - Fk_face[:,:,0])/(Nk_face[:,:,1] - Nk_face[:,:,0])
-        alpha = np.empty_like(Fk_face)
-        alpha[:,:,0] = Nk_face[:,:,0]/(1/ctes.n_volumes)
-        alpha[:,:,1] = Nk_face[:,:,1]/(1/ctes.n_volumes)
-        #alpha[(Nk_face[:,:,1] - Nk_face[:,:,0])==0] = 0
         Fk_internal_faces, alpha_LLF = self.update_flux_LLF(Fk_face[:,~ponteiro,:],
             Nk_face[:,~ponteiro,:], alpha)
         return Fk_internal_faces, alpha_LLF
@@ -221,6 +216,7 @@ class RiemannSolvers:
         except:
             Fj = f.update_Fj_internal_faces(np.tile(ftotal[:,ponteiro],v), rho_j, mobilities, Pcap_reshaped,
             z_reshaped, np.tile(ctes.pretransmissibility_internal_faces[0],v))
+
         Fk = f.update_Fk_internal_faces(xkj, Csi_j, Fj)
         return Fk
 
@@ -301,17 +297,19 @@ class RiemannSolvers:
 
         alpha = np.concatenate((dFkdNk_eigvalue[:,ponteiro], dFkdNk_gauss_eigvalue), axis=-1)
         alpha = np.concatenate((alpha, dFkdNk_m_eigvalue[:,:,np.newaxis]), axis=-1)
-
         return alpha
 
     def update_flux_LLF(self, Fk_face_LLF_all, Nk_face_LLF, alpha_LLF):
+
+        #alpha2 = np.concatenate((alpha_LLF, alpha_RH[:,:,np.newaxis]),axis=-1)
         #alpha_RH = (Fk_face_LLF_all[:,:,1] - Fk_face_LLF_all[:,:,0]) / \
         #    (Nk_face_LLF[:,:,1] - Nk_face_LLF[:,:,0])
-        #alpha_RH[(Nk_face_LLF[:,:,1] - Nk_face_LLF[:,:,0])==0] = 0
-        #alpha2 = np.concatenate((alpha_LLF, alpha_RH[:,:,np.newaxis]),axis=-1)
-        alpha = np.max(abs(alpha_LLF),axis = 0)
+        #alpha_LLF[abs(Nk_face_LLF[:,:,1] - Nk_face_LLF[:,:,0])>1e-3] = alpha_RH[abs(Nk_face_LLF[:,:,1] -
+        #    Nk_face_LLF[:,:,0])>1e-3][:,np.newaxis]
+        alpha = np.max(abs(alpha_LLF[:,:,:2]),axis = 0)
         Fk_face_LLF = 0.5*(Fk_face_LLF_all.sum(axis=-1) - np.max(abs(alpha),axis=-1) * \
                     (Nk_face_LLF[:,:,1] - Nk_face_LLF[:,:,0]))
+
         return Fk_face_LLF, alpha
 
 class MUSCL:
@@ -648,19 +646,19 @@ class FR:
         Nk_SP = np.copy(Nk_SP_old)
 
         q_SP = q[:,:,np.newaxis] * np.ones_like(Nk_SP)
+        q_SP[:] = 0
 
-        dFk_SP, wave_velocity = self.dFk_SP_from_Pspace(M, fprop, wells, Ft_internal_faces, np.copy(Nk_SP), P_old)
+        dFk_SP, wave_velocity = self.dFk_SP_from_Pspace(M, fprop, wells, Ft_internal_faces, np.copy(Nk_SP), q_SP, P_old)
         Nk_SP = RK3.update_composition_RK3_1(np.copy(Nk_SP_old), q_SP, dFk_SP, delta_t)
         Nk_SP = self.MLP_slope_limiter(M, fprop, Nk_SP)
 
-        dFk_SP, wave_velocity = self.dFk_SP_from_Pspace(M, fprop, wells, Ft_internal_faces, np.copy(Nk_SP), P_old)
+        dFk_SP, wave_velocity = self.dFk_SP_from_Pspace(M, fprop, wells, Ft_internal_faces, np.copy(Nk_SP), q_SP, P_old)
         Nk_SP = RK3.update_composition_RK3_2(np.copy(Nk_SP_old), q_SP, np.copy(Nk_SP), dFk_SP, delta_t)
         Nk_SP = self.MLP_slope_limiter(M, fprop, Nk_SP)
 
-        dFk_SP, wave_velocity = self.dFk_SP_from_Pspace(M, fprop, wells, Ft_internal_faces, Nk_SP, P_old)
+        dFk_SP, wave_velocity = self.dFk_SP_from_Pspace(M, fprop, wells, Ft_internal_faces, Nk_SP, q_SP, P_old)
         Nk_SP = RK3.update_composition_RK3_3(np.copy(Nk_SP_old), q_SP, np.copy(Nk_SP), dFk_SP, delta_t)
         Nk_SP = self.MLP_slope_limiter(M, fprop, Nk_SP)
-
         fprop.Fk_vols_total = np.min(abs(dFk_SP),axis=2)
 
         Nk = 1 / sum(ctes_FR.weights) * np.sum(ctes_FR.weights * Nk_SP,axis=2)
@@ -669,22 +667,41 @@ class FR:
 
         if len(Nk_SP[Nk_SP<0])>0:
             pass
-
+            #import pdb; pdb.set_trace()
         return wave_velocity, Nk, z, Nk_SP
 
-    def dFk_SP_from_Pspace(self, M, fprop, wells, Ft_internal_faces, Nk_SP, P_old):
+    def dFk_SP_from_Pspace(self, M, fprop, wells, Ft_internal_faces, Nk_SP, q_SP, P_old):
+
+        Csi_j_SP = fprop.Csi_j[:,:,:,np.newaxis]*np.ones((1,ctes.n_phases,ctes.n_volumes,ctes_FR.n_points))
+        Sw_SP = Nk_SP[-1] * (1/Csi_j_SP[0,-1]) / fprop.Vp[0]
+
+        mobilities = np.empty_like(Csi_j_SP)
+        xkj = np.zeros((ctes.n_components,ctes.n_phases,ctes.n_volumes,ctes_FR.n_points))
+        xkj[0:-1,0:-1,:] = 1
+        xkj[-1,-1,:] = 1
+        L_face = np.ones_like(Sw_SP)
+        V_face = 1 - L_face
+        So_SP = np.empty_like(Sw_SP)
+        Sg_SP = np.empty_like(Sw_SP)
+        So_SP, Sg_SP =  PropertiesCalc().update_saturations(Sw_SP,
+            Csi_j_SP, L_face, V_face)
+        for i in range(ctes_FR.n_points):
+            mobilities[:,:,:,i] = PropertiesCalc().update_mobilities(fprop, So_SP[:,i], Sg_SP[:,i],
+                Sw_SP[:,i], Csi_j_SP[:,:,:,i], xkj[:,:,:,i])
+
+        f = mobilities[0,...]/(np.sum(mobilities[0,...],axis=0))
+        Fj_SP = f * Ft_internal_faces[0,0] #self.Flux_SP(fprop, wells, M, Fk_faces)
+        Fk_SP = np.sum(xkj * Csi_j_SP * Fj_SP, axis = 1)
 
         Fk_faces, Fk_vols_RS_neig, wave_velocity = self.Fk_Nk_face(M, fprop, wells,
             Ft_internal_faces, Nk_SP, P_old)
-        Fk_SP = (Nk_SP**2/2)/(1/ctes.n_volumes) #self.Flux_SP(fprop, wells, M, Fk_faces)
-        #Fk_SP = self.Flux_SP(fprop, wells, M, Fk_faces, Ft_internal_faces, P_face, Nk_SP)
+
+        #Fk_SP = self.Flux_SP(fprop, wells, M, Fk_faces)
 
         Fk_D = np.sum(Fk_SP[:,:,:,np.newaxis] * ctes_FR.L[np.newaxis,np.newaxis,:], axis=2)
         dFk_D = np.sum(Fk_SP[:,:,:,np.newaxis] * ctes_FR.dL[np.newaxis,np.newaxis,:], axis=2)
         dFk_C = self.dFlux_Continuous(Fk_D, Fk_vols_RS_neig)
         dFk_Pspace = (dFk_C + dFk_D)
-        #x_points = np.array([ctes_FR.points**i for i in range(ctes_FR.n_points+1)])
-        #Fk_SP = Fk_D@ctes_FR.x_points + Fk_C@x_points
 
         #Fk_vols_RS_neig[:,wells['all_wells'],0] = -Fk_vols_RS_neig[:,wells['all_wells'],0]
         if not data_loaded['compositional_data']['water_data']['mobility']:
@@ -694,12 +711,11 @@ class FR:
         #dFk_Pspace[:,wells['all_wells'],0] = (Fk_vols_RS_neig[:,wells['all_wells']]).sum(axis=2)/2
         dFk_SP = dFk_Pspace @ ctes_FR.x_points
         dFk_SP = - 2 * dFk_SP #this way only works for uniform mesh
-        #dFk_SP[:,wells['all_wells']] =  -Fk_vols_RS_neig[:,wells['all_wells']]
 
         #up! transforming from local space to original global space (this could be done to the g and L functions
         #only, however, I rather do like this, so it's done just once)
-
         #dFk_SP [:,wells['all_wells']] = Fk_vols_RS_neig[:,wells['all_wells']].sum(axis=2)
+
         #dFk_SP = np.empty_like(Fk_SP[:,ctes.vols_no_wells])
         #for i in range(ctes_FR.n_points):
         #    dFk_SP[:,:,i] = np.array(dFk_func(ctes_FR.points[i]))
@@ -739,16 +755,18 @@ class FR:
         return Fk_SP
 
     def Riemann_Solver(self, M, fprop, Nk_faces, Nk_SP, P_face, Ft_internal_faces):
+
         Fk_faces = RiemannSolvers(ctes_FR.v0).get_Fk_face(fprop, M, Nk_faces, P_face, Ft_internal_faces)
+
         Nk_face_contour = np.empty((ctes.n_components,1,2))
-        Nk_face_contour[:,:,1] = Nk_SP[:,0,0]
-        Nk_face_contour[:,:,0] = Nk_SP[:,-1,-1]
+        Nk_face_contour[:,0,1] = Nk_SP[:,0,0]
+        Nk_face_contour[:,0,0] = Nk_SP[:,-1,-1]
+        Nk_face_contour[-1,0,0] = 1*fprop.Csi_j[0,-1,0]*fprop.Vp[0]
 
         Fk_faces_contour = RiemannSolvers(np.array([0,ctes.n_volumes-1])[np.newaxis]).get_Fk_face(fprop, M,
             Nk_face_contour, P_face[np.newaxis,0], Ft_internal_faces[:,0][:,np.newaxis])
         Fk_face_contour_RS, alpha_wv =  RiemannSolvers(np.array([0,ctes.n_volumes-1])[np.newaxis]).LLF(M, fprop, Nk_face_contour, P_face[np.newaxis,0],
             Ft_internal_faces[:,0][:,np.newaxis], Fk_faces_contour, np.zeros(1,dtype=bool))
-
         Fk_face_RS, alpha_wv =  RiemannSolvers(ctes_FR.v0).LLF(M, fprop, Nk_faces, P_face,
             Ft_internal_faces, Fk_faces, np.zeros(ctes.n_internal_faces,dtype=bool))
 
@@ -760,7 +778,10 @@ class FR:
         vols_vec[ctes_FR.v0[:,1],0] = lines
 
         Fk_vols_RS_neig = Fk_face_RS[:,ctes_FR.vols_vec]
+
         Fk_vols_RS_neig[:,vols_vec<0] = Fk_face_contour_RS
+        Fk_vols_RS_neig[-1,-1] = 0
+        Fk_vols_RS_neig[0,-1,-1] = 2 * Fk_vols_RS_neig[0,-1,-1]
         return Fk_faces, Fk_vols_RS_neig, alpha_wv
 
     def dFlux_Continuous(self, Fk_D, Fk_vols_RS_neig):
@@ -776,8 +797,6 @@ class FR:
 
     def MLP_slope_limiter(self, M, fprop, Nk_SP_in):
 
-        Nk_avg = 1 / 2 * np.sum(ctes_FR.weights * Nk_SP_in, axis=2)
-
         inds = np.array([0,-1])
 
         Nk = (np.linalg.inv(ctes_FR.V)[np.newaxis,] @ Nk_SP_in[:,:,:, np.newaxis])[:,:,:,0]
@@ -787,9 +806,20 @@ class FR:
         if machine_error<np.finfo(np.float64).eps: machine_error = np.finfo(np.float64).eps
         #machine_error = 1e-10
 
-        Phi_P1, Nk_P0, Nk_P1 = self.P1_limiter(Nk, Nk_SP, machine_error)
+        inds = np.array([0,-1])
+        'Projected n=0'
+        Nk0 = np.zeros(Nk.shape)
+        Nk0[:,:,0] = Nk[:,:,0]
+        Nk_P0 = self.projections(Nk0)
         Nk_P0_vertex = Nk_P0[:,:,inds]
+
+        'Projected n=1'
+        Nk1 = np.copy(Nk0)
+        Nk1[:,:,1] = Nk[:,:,1]
+        Nk_P1 = self.projections(Nk1)
         Nk_P1_vertex = Nk_P1[:,:,inds]
+
+        Phi_P1 = self.P1_limiter(Nk, Nk_SP, Nk_P0_vertex, Nk_P1_vertex, machine_error)
 
         phi_P2 = np.zeros_like(Phi_P1)
         phi_Pn = np.zeros_like(Phi_P1)
@@ -814,13 +844,11 @@ class FR:
                 Nk2[:,:,0:3] = Nk[:,:,0:3]
                 Nk_P2 = (ctes_FR.V[np.newaxis,] @ Nk2[:,:,:,np.newaxis])[:,:,:,0]
 
-                Phi_P1, Nk_P0_2, Nk_P1_2  = self.P1_limiter(Nk2, Nk_P2, machine_error)
+                Phi_P1  = self.P1_limiter(Nk2, Nk_P2, Nk_P0_vertex, Nk_P1_vertex, machine_error)
                 phi_P2 = self.troubled_cell_marker(M, fprop, Nk_P1_vertex, Nk_P0_vertex, Nk_P2, machine_error)
-
 
             phi_P2[phi_Pn==1] = 1
             Phi_P1[phi_P2==1] = 1
-
 
         Nk_SPlim = (Nk_P0 + Phi_P1[:,:,np.newaxis] * (Nk_P1 - Nk_P0) + \
             phi_P2[:,:,np.newaxis] * ((Nk_P2 - Nk_P1) + phi_Pn[:,:,np.newaxis] * (Nk_SP - Nk_P2)))
@@ -838,26 +866,11 @@ class FR:
         #if self.t>0.8: import pdb; pdb.set_trace()
         return Nk_SPlim
 
-
     def projections(self, Nkm):
         Nk_Pm = (ctes_FR.V[np.newaxis,] @ Nkm[:,:,:,np.newaxis])[:,:,:,0]
         return Nk_Pm
 
-    def P1_limiter(self, Nk, Nk_Pm, machine_error):
-
-        inds = np.array([0,-1])
-        'Projected n=0'
-        Nk0 = np.zeros(Nk.shape)
-        Nk0[:,:,0] = Nk[:,:,0]
-        Nk_P0 = self.projections(Nk0)
-        Nk_P0_vertex = Nk_P0[:,:,inds]
-
-        'Projected n=1'
-        Nk1 = np.copy(Nk0)
-        Nk1[:,:,1] = Nk[:,:,1]
-        Nk_P1 = self.projections(Nk1)
-        Nk_P1_vertex = Nk_P1[:,:,inds]
-
+    def P1_limiter(self, Nk, Nk_Pm, Nk_P0_vertex, Nk_P1_vertex, machine_error):
         Linear_term = Nk_P1_vertex - Nk_P0_vertex
 
         'Neigboring vertex points values'
@@ -875,13 +888,13 @@ class FR:
         r = np.max(rs, axis = -1)
         Phi_r = r
         Phi_r[Phi_r>1] = 1
-        #import pdb; pdb.set_trace()
         Phi_P1 = np.ones_like(Phi_r)
         Phi_P1[abs(Nk_P1_vertex - Nk_P0_vertex) >= machine_error] = Phi_r[abs(Nk_P1_vertex - Nk_P0_vertex) >= machine_error]
         Phi_P1 = np.min(Phi_P1, axis = 2)
-        Phi_P1[:,-1] = 1
-        Phi_P1[:,0] = 1
-        return Phi_P1, Nk_P0, Nk_P1
+        #Phi_P1[:,-1] = 1
+        #Phi_P1[:,0] = 1
+        #import pdb; pdb.set_trace()
+        return Phi_P1
 
     def troubled_cell_marker(self, M, fprop, Nk_P1_vertex, Nk_P0_vertex, Nk_Pm, machine_error):
         Linear_term = Nk_P1_vertex - Nk_P0_vertex
@@ -949,7 +962,5 @@ class FR:
         aux_Nf_II = Nf[smooth_extrema_cell==1]
         aux_II[aux_Nf_II>=1] = 0
         smooth_extrema_cell[smooth_extrema_cell==1] = aux_II
-
         phi_Pm[~phi_Pm.astype(bool)] = smooth_extrema_cell[~phi_Pm.astype(bool)]
-        #if self.t>1.3: import pdb; pdb.set_trace()
         return phi_Pm

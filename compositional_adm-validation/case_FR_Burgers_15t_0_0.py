@@ -30,6 +30,7 @@ for arq in arquivos:
 
         '---------------------------Flux Reconstruction------------------------'
         datas = np.load('flying/results_Burger_8_15t_FR2_1501.npy', allow_pickle=True)
+        
 
         for data in datas[1:]:
             Nk8_FR = data[12][0].flatten()

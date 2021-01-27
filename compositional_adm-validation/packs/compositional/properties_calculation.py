@@ -19,17 +19,9 @@ class PropertiesCalc:
 
     def run_outside_loop(self, M, fprop, wells):
         ''' This function was created to calculate the fluid properties at t=0'''
-        x = np.linspace(0+1/(2*ctes.n_volumes),1-1/(2*ctes.n_volumes),ctes.n_volumes)
-        fprop.Nk = np.array([(1/(2*math.pi))*np.sin(2*math.pi*x)])
-        
-        fprop.Vp = self.update_porous_volume(fprop.P)
-        M.data['centroid_volumes'][:,0] = x
-
-        ctes.pretransmissibility_internal_faces = 1/((1/ctes.n_volumes)) * np.ones(ctes.n_internal_faces)
 
         if ctes.load_w:
             self.update_water_properties(M, fprop)
-
 
         if ctes.load_k:
             fprop.So, fprop.Sg = self.update_saturations(M.data['saturation'],
@@ -47,10 +39,10 @@ class PropertiesCalc:
         self.update_capillary_pressure(fprop)
         if ctes.FR: fprop.Nk_SP = self.set_Nk_Pspace(fprop)
 
-
     def run_inside_loop(self, M, fprop):
         ''' Function to update fluid and reservoir properties along the \
         simulation '''
+
         fprop.Vp = self.update_porous_volume(fprop.P)
 
         if ctes.load_w:
@@ -90,8 +82,6 @@ class PropertiesCalc:
         if ctes.load_w:
             fprop.Nj[0,ctes.n_phases-1,:] = fprop.Csi_W * self.Vw
 
-        fprop.Nj[0,:] = fprop.Nk #'''TIRAR NO CODIGO ORIGINAL URGENTE'''
-
         Nkj = fprop.xkj * fprop.Nj
         fprop.Nk = np.sum(Nkj, axis = 1)
 
@@ -102,23 +92,16 @@ class PropertiesCalc:
         For now, this only works for constant Nk distribution'
         #x = Symbol('x')
         #Nk_vols_no_wells = fprop.Nk[:,ctes.vols_no_wells]
-        #Nk_SP = np.ones((ctes.n_components,len(ctes.vols_no_wells),ctes.n_points+2))
-        #Nk_SP = Nk_SP * Nk_vols_no_wells[:,:,np.newaxis]/(ctes.n_points+2)
-        Nk_SP = (fprop.Nk)[:,:,np.newaxis] * np.ones((ctes.n_components, ctes.n_volumes, ctes_FR.n_points))
-        x = np.empty_like(Nk_SP[0])
-
-        for i in range(ctes_FR.n_points):
-            x[:,i] = np.linspace(0+(ctes_FR.points[i]+1)*1/(2*ctes.n_volumes),1-(1-ctes_FR.points[i])*1/(2*ctes.n_volumes),ctes.n_volumes)
-        Nk_SP =  np.array([(1/(2*math.pi))*np.sin(2*math.pi*x)])
-
-        #Nk_Pspace[:,ctes.vols_no_wells] = Nk_Pspace[:,ctes.vols_no_wells]
-        #Nk_Pspace[:,:,1:] = 0
+        Sw_SP = np.ones((ctes.n_volumes,ctes_FR.n_points)) * 0
+        Nk_SP = np.ones((ctes.n_components,ctes.n_volumes,ctes_FR.n_points))
+        Nk_SP[-1,:] = Sw_SP * fprop.Csi_W0[0] * fprop.Vp[0]
+        Nk_SP[0:-1,:] =  Nk_SP[0:-1,:] * fprop.Nk[0:-1,:,np.newaxis]
+        Nk_SP[0:-1,0,0:] =  fprop.Nk[0:-1,1,np.newaxis]
         return Nk_SP
 
     def update_porous_volume(self, P):
         #fprop.porosity = ctes.porosity * (1 + ctes.Cf * (fprop.P - ctes.Pf))
         Vp = ctes.porosity * ctes.Vbulk * (1 + ctes.Cf*(P - ctes.Pf))
-        Vp = (1/ctes.n_volumes) * np.ones(len(P))
         return Vp
 
     def update_saturations(self, Sw, Csi_j, L, V):
@@ -180,7 +163,6 @@ class PropertiesCalc:
         krs = self.update_relative_permeabilities(fprop, So, Sg, Sw)
         mis = self.update_phase_viscosities(fprop, Csi_j, xkj)
         mobilities = krs / mis
-        mobilities[-1,:] = 1
         return mobilities
 
     def update_capillary_pressure(self, fprop):
@@ -195,7 +177,6 @@ class PropertiesCalc:
 
     def update_water_saturation(self, fprop, Nw, P, Vp, Csi_W0):
         Csi_W = Csi_W0 * (1 + ctes.Cw * (P - ctes.Pw))
-        Csi_W = Nw**2/2/Vp
         rho_W = Csi_W * ctes.Mw_w
-        Sw = Nw**2/2 * (1 / Csi_W) / Vp
+        Sw = Nw * (1 / Csi_W) / Vp
         return Sw, Csi_W, rho_W

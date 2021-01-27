@@ -14,50 +14,64 @@ Permeability:
 Porosity:
   r1:
     type: all
-    value: 1.0
+    value: 0.2
 Pressure:
   r1:
     type: all
     value: 25.579E6
 Saturation:
   r1:
-    type: all
-    value: 1.0
+    p0:
+    - 0.0
+    - 0.0
+    - 0
+    p1:
+    - 0.5859375
+    - 1
+    - 1
+    type: box
+    value: 0
 Temperature:
   r1:
     type: all
     value: 366.4833
 Wells:
   P1:
-    ksi_total: 55484.31862337
+    ksi_total: 55509.29780738274
     p0:
     - 0.0
     - 0.0
-    - -0.03048
-    p1:
-    - 0.001191015625
-    - 0.03048
     - 0.0
+    p1:
+    - 0.5859375
+    - 1
+    - 1
     prescription: Q
     type: Injector
     type_region: box
-    value: 0
+    value: 3e-07
+    value_type: volumetric
+    z:
+    - 0.0
+    - 1.0
+  P2:
+    ksi_total: 5495.18609786
+    p0:
+    - 299.4140625
+    - 0.0
+    - 0
+    p1:
+    - 300
+    - 1
+    - 1
+    prescription: Q
+    type: Producer
+    type_region: box
+    value: 3e-7
     value_type: volumetric
     z:
     - 1.0
-  P2:
-    p0:
-    - 0.6086089844
     - 0.0
-    - -0.03048
-    p1:
-    - 0.6096
-    - 0.03048
-    - 0.0
-    prescription: P
-    type: Producer
-    type_region: box
-    value: 25.579E6
 compositional: true
 compositional_data:
   CFL: 0.3
@@ -92,7 +106,7 @@ compositional_data:
     z:
     - 1.0
   equation_of_state: PengRobinson
-  maximum_time: 1.5
+  maximum_time: 129600000
   phase_viscosity: LorenzBrayClark
   relative_permeability: BrooksAndCorey
   relative_permeability_data:
@@ -105,43 +119,43 @@ compositional_data:
   residual_saturations:
     Sgr: 0
     Sorg: 0
-    Sorw: 0.1
-    Swr: 0.1
+    Sorw: 0.0
+    Swr: 0.0
   rock_compressibility: 0
   time_data:
-    deltaNlim: 0.001
+    deltaNlim: 0.1
     deltaPlim: 68.9476
-    deltaSlim: 0.0001
+    deltaSlim: 0.1
     deltaVlim: 0.1
-    delta_t_ini: 0.0003
-    delta_tmax: 0.0003
-    delta_tmin: 1.0e-05
+    delta_t_ini: 10800
+    delta_tmax: 10800
+    delta_tmin: 10800
   time_to_save:
-  - 1.5
+  - 129600000
   vpis_para_gravar_vtk:
   - 0.1
   - 0.3
   - 0.5
   water_data:
     Cw: 0
-    Mw_w: 1
+    Mw_w: 0.018015
     Pw: 13.79e6
-    mi_W: 1
+    mi_W: 1e-3
     mobility: true
-    rho_W: 1
+    rho_W: 1000
 compressible_fluid: false
 convert_english_to_SI: false
 deletar_results: false
 gravity: false
-hidrocarbon_components: false
+hidrocarbon_components: true
 load_compositional_data: false
 load_data: true
 load_operators: false
-mesh_name: 80x1x1_Burger.msh
+mesh_name: 512x1x1_BL_FR.msh
 monophasic_data:
   gama: 10000.0
   mi: 1.0
-name_save_file: results_Burger_80_FR4
+name_save_file: results_BL_512_FR4
 read_permeability: false
 set_permeability: true
 set_porosity: true
