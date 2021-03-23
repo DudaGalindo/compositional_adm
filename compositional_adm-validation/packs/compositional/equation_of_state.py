@@ -40,10 +40,15 @@ class PengRobinson:
         Z = CubicRoots().run(coef)
         root = np.isreal(Z)
         n_reais = np.sum(root*1, axis = 1)
+        
+        'if n_reais == 2'
+        aux_reais = (n_reais==3)
+        Z_reais_n2 = np.reshape(Z[aux_reais][root[aux_reais]],(len(aux_reais[aux_reais]),2))
+        Z_aux_reais = Z[aux_reais]
+        Z_aux_reais[~root[aux_reais]] = np.max(Z_reais_n2,axis=1, initial=1)
+        Z[aux_reais] = Z_aux_reais
 
-        aux_reais = (n_reais<3) & (n_reais>1)
-        if any(aux_reais): Z[~root[aux_reais]] = Z[root[aux_reais]][0]
-
+        'if n_reais==1'
         Z[~root[n_reais==1]] = np.repeat(Z[root[n_reais == 1]], 2)
 
         aux_neg = np.zeros(Z.shape,dtype=bool)
