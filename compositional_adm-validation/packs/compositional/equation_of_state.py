@@ -40,20 +40,29 @@ class PengRobinson:
         Z = CubicRoots().run(coef)
         root = np.isreal(Z)
         n_reais = np.sum(root*1, axis = 1)
-        
+
         'if n_reais == 2'
-        aux_reais = (n_reais==3)
+        aux_reais = (n_reais==2)
         Z_reais_n2 = np.reshape(Z[aux_reais][root[aux_reais]],(len(aux_reais[aux_reais]),2))
         Z_aux_reais = Z[aux_reais]
-        Z_aux_reais[~root[aux_reais]] = np.max(Z_reais_n2,axis=1, initial=1)
+        Z_aux_reais[~root[aux_reais]] = np.max(Z_reais_n2,axis=1, initial=0)
         Z[aux_reais] = Z_aux_reais
 
         'if n_reais==1'
         Z[~root[n_reais==1]] = np.repeat(Z[root[n_reais == 1]], 2)
 
+        'if any Z<0'
         aux_neg = np.zeros(Z.shape,dtype=bool)
         aux_neg[Z<0] = True
-        Z[aux_neg] = Z[~aux_neg][0]
+        lines_Zneg1 = (aux_neg.sum(axis=1)==1).astype(bool)
+        lines_Zneg2 = (aux_neg.sum(axis=1)==2).astype(bool)
+        Zneg1 = Z[lines_Zneg1]
+        Zneg1[Zneg1<0] = np.max(Z[lines_Zneg1],axis=1, initial=0)
+        Z[lines_Zneg1] = Zneg1
+        Zneg2 = Z[lines_Zneg2]
+        Zneg2[Zneg2<0] = np.repeat(np.max(Z[lines_Zneg2],axis=1, initial=0),2)
+        Z[lines_Zneg2] = Zneg2
+        
         Zsave = Z
         Z = np.min(Z, axis = 1) * ph + np.max(Z, axis = 1) * (1 - ph)
         Z = np.real(Z)
