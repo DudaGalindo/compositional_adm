@@ -46,6 +46,7 @@ class run_simulation:
         properties'''
 
         fprop = FluidProperties(M, wells) # load reservoir properties data and initialize other data
+        #fprop.z[:,0] = np.array([0.9,0.1,0.])
 
         '------------------------- Perform initial flash ----------------------'
 
@@ -54,7 +55,15 @@ class run_simulation:
             fprop.L, fprop.V, fprop.xkj[0:ctes.Nc, 0, :], \
             fprop.xkj[0:ctes.Nc, 1, :], fprop.Csi_j[:,0,:], \
             fprop.Csi_j[:,1,:], fprop.rho_j[:,0,:], fprop.rho_j[:,1,:]  =  \
-            self.p2.run_init(fprop.P, fprop.z)
+            self.p2.run_init(fprop.P, np.copy(fprop.z))
+
+            if any(([wells['inj_cond']=='reservoir'])):
+                z = (wells['z'][wells['inj_cond']=='reservoir']).T
+                p_well = StabilityCheck(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']], fprop.T)
+                L, V, x, y, Csi_L, Csi_V, rho_L, rho_V  =  \
+                p_well.run_init(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']],z[:ctes.Nc])
+                fprop.q_vol = wells['values_q'][:,wells['inj_cond']=='reservoir']
+                wells['values_q'][:,wells['inj_cond']=='reservoir'] *= (z * Csi_V).sum(axis=0)
 
         else: fprop.x = []; fprop.y = []; fprop.L = []; fprop.V = []
         if ctes.load_w: fprop.inputs_water_properties(M) #load water properties
@@ -80,21 +89,33 @@ class run_simulation:
 
         '----------------- Perform Phase stability test and flash -------------'
 
-        if ctes.load_k and ctes.compressible_k:
+        if ctes.load_k :
+
             fprop.L, fprop.V, fprop.xkj[0:ctes.Nc, 0, :], \
             fprop.xkj[0:ctes.Nc, 1, :], fprop.Csi_j[:,0,:], \
             fprop.Csi_j[:,1,:], fprop.rho_j[:,0,:], fprop.rho_j[:,1,:]  =  \
-            self.p2.run(wells, fprop.P, fprop.z)
+            self.p2.run(wells, fprop.P, np.copy(fprop.z))
+
+            if any(([wells['inj_cond']=='reservoir'])):
+                z = (wells['z'][wells['inj_cond']=='reservoir']).T
+                p_well = StabilityCheck(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']], fprop.T)
+
+                L, V, x, y, Csi_L, Csi_V, rho_L, rho_V  =  \
+                p_well.run_init(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']],z[:ctes.Nc])
+                wells['values_q'][:,wells['inj_cond']=='reservoir'] = fprop.q_vol*(z * Csi_V).sum(axis=0)
 
         '----------------------- Update fluid properties ----------------------'
 
         self.p1.run_inside_loop(M, fprop)
 
+        #if fprop.Sg[0]>0: import pdb; pdb.set_trace()
         '-------------------- Advance in time and save results ----------------'
 
         self.update_vpi(fprop, wells)
+        if self.vpi>0.2: import pdb; pdb.set_trace()
         self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
-        if len(wells['ws_p'])>0:self.update_production(fprop, wells)
+        if len(wells['ws_p'])>0: self.update_production(fprop, wells)
+
         self.update_loop()
         t1 = time.time()
         dt = t1 - t0
@@ -104,6 +125,7 @@ class run_simulation:
         else:
             if self.time_save[0] == 0.0 or self.t in self.time_save:
                 self.update_current_compositional_results(M, wells, fprop, dt)
+                import pdb; pdb.set_trace()
 
     def update_loop(self):
         ''' Function to count how many loops it has been since the simulation \
@@ -118,18 +140,18 @@ class run_simulation:
             flux_vols_total = wells['values_q_vol']
             flux_total_inj = np.absolute(flux_vols_total)
         else: flux_total_inj = np.zeros(2)
-
         self.vpi = self.vpi + (flux_total_inj.sum())/sum(fprop.Vp)*self.delta_t
+
 
     def get_empty_current_compositional_results(self):
         return [np.array(['loop', 'vpi [s]', 'simulation_time [s]', 't [s]', 'pressure [Pa]', 'Sw', 'So', 'Sg',
-                        'Oil_p', 'Gas_p', 'z', 'centroids', 'Nk'])]
+                        'Oil_p', 'Gas_p', 'z', 'centroids', 'Nk', 'xkj'])]
 
     def update_production(self, fprop, wells):
         ''' Function to compute oil and gas production rate [m³/s] through time'''
         if ctes.load_k:
-            self.oil_production +=  abs(fprop.q_phase[:,0,:].sum()) *self.delta_t
-            self.gas_production +=  abs(fprop.q_phase[:,1,:].sum())*self.delta_t
+            self.oil_production +=  abs(fprop.q_phase[:,0].sum()) *self.delta_t
+            self.gas_production +=  abs(fprop.q_phase[:,1].sum())*self.delta_t
 
     def update_current_compositional_results(self, M, wells, fprop, simulation_time: float = 0.0):
 
@@ -138,8 +160,8 @@ class run_simulation:
         if ctes.FR: Nk = fprop.Nk_SP
         else: Nk = fprop.Nk
         self.current_compositional_results = np.array([self.loop, self.vpi, simulation_time,
-        self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
-        self.gas_production, fprop.z, M.data['centroid_volumes'], Nk],dtype=object)
+            self.t, fprop.P, fprop.Sw, fprop.So, fprop.Sg, self.oil_production,
+            self.gas_production, fprop.z, M.data['centroid_volumes'], Nk, fprop.xkj],dtype=object)
         self.all_results.append(self.current_compositional_results)
         M.data['saturation'] = fprop.Sw
         M.data['So'] = fprop.So

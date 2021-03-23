@@ -39,7 +39,7 @@ class PengRobinson:
         coef[3,:] = -(A*B - B*B - B*B*B)
         Z = CubicRoots().run(coef)
         root = np.isreal(Z)
-        n_reais = np.sum(root*1, axis = 1)
+        n_reais = np.sum(root.astype(np.int), axis=1)
 
         'if n_reais == 2'
         aux_reais = (n_reais==2)

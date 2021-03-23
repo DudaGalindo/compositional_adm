@@ -29,9 +29,9 @@ compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 0.5
   MUSCL:
-    set: True
+    set: false
   FR:
-    set: False
+    set: true
     order: 3
   vpis_para_gravar_vtk: [0.1, 0.15, 0.20]
   time_to_save: [0.0]
@@ -132,6 +132,7 @@ Wells:
     value: 3.2774128e-8
     z: [0., 1.]
     ksi_total: 55484.31862337
+    injection_condition: 'surface'
     value_type: volumetric
 
   P2:

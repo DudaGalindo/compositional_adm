@@ -30,6 +30,7 @@ for arq in arquivos:
         for data in datas[1:]:
             Nk8_FR = data[12][0].flatten()
             n = 8
+            
             x8_2 = np.empty((n,2))
             GL = quadpy.c1.gauss_lobatto(2)
             points = GL.points
@@ -79,6 +80,7 @@ for arq in arquivos:
             e32_L2 = np.sqrt(np.sum((Nk32_ans_2 - Nk32_FR)**2) * 1 / n)
             R32_L1 = math.log(e16_L1/e32_L1,2)
             R32_L2 =  math.log(e16_L2/e32_L2,2)
+            Nk32_FR_avg = np.sum(data[12][0]*GL.weights,axis=-1)/2
 
         datas = np.load('flying/results_Burger_64_FR2_600.npy', allow_pickle=True)
 
@@ -97,6 +99,7 @@ for arq in arquivos:
             e64_L2 = np.sqrt(np.sum((Nk64_ans_2 - Nk64_FR)**2) * 1 / n)
             R64_L1 = math.log(e32_L1/e64_L1,2)
             R64_L2 = math.log(e32_L2/e64_L2,2)
+            Nk64_FR_avg = np.sum(data[12][0]*GL.weights,axis=-1)/2
 
 
         datas = np.load('flying/results_Burger_128_FR2_750.npy', allow_pickle=True)
@@ -206,6 +209,7 @@ for arq in arquivos:
 
             e32_L1_3 = np.sum(abs(Nk32_ans_3 - Nk32_FR3)) * 1 / n
             R32_3 = math.log(e16_L1_3/e32_L1_3,2)
+            Nk32_FR3_avg = np.sum(data[12][0]*GL.weights,axis=-1)/2
 
         datas = np.load('flying/results_Burger_64_FR3_600.npy', allow_pickle=True)
 
@@ -222,6 +226,7 @@ for arq in arquivos:
 
             e64_L1_3 = np.sum(abs(Nk64_ans_3 - Nk64_FR3)) * 2 / n
             R64_3 = math.log(e32_L1_3/e64_L1_3,2)
+            Nk64_FR3_avg = np.sum(data[12][0]*GL.weights,axis=-1)/2
 
         datas = np.load('flying/results_Burger_128_FR3_750.npy', allow_pickle=True)
 
@@ -321,6 +326,7 @@ for arq in arquivos:
 
             e32_L1_4 = np.sum(abs(Nk32_ans_4 - Nk32_FR4)) * 2 / n
             R32_4 = math.log(e16_L1_4/e32_L1_4,2)
+            Nk32_FR4_avg = np.sum(data[12][0]*GL.weights,axis=-1)/2
 
         datas = np.load('flying/results_Burger_64_FR4_600.npy', allow_pickle=True)
 
@@ -337,6 +343,7 @@ for arq in arquivos:
 
             e64_L1_4 = np.sum(abs(Nk64_ans_4 - Nk64_FR4)) * 2 / n
             R64_4 = math.log(e32_L1_4/e64_L1_4,2)
+            Nk64_FR4_avg = np.sum(data[12][0]*GL.weights,axis=-1)/2
 
         datas = np.load('flying/results_Burger_128_FR4_750.npy', allow_pickle=True)
 
@@ -392,7 +399,7 @@ for arq in arquivos:
         plt.plot(x, Nk_FOU, 'k', x512_4, Nk512_ans_4, 'b')
         plt.legend(('FOU', 'Analytical'))
         plt.savefig('results/compositional/FR/Nk_Burgers_sol_03t')
-        import pdb; pdb.set_trace()
+
         plt.figure(6)
         x = np.log10(np.array([8,16,32,64,128,256,512]))
         y = np.log10(np.array([e8_L1, e16_L1, e32_L1, e64_L1, e128_L1, e256_L1, e512_L1]))
@@ -407,4 +414,15 @@ for arq in arquivos:
         plt.xlabel('$log_{10}(N)$')
         plt.legend(('FR-2nd order', 'FR-3rd order', 'FR-4th order', 'FR-5th order'))
         plt.savefig('results/compositional/FR/Nk_Burgers_convergence.png')
+
+        plt.figure(7)
+        x32 = np.linspace(0+1/64,1-1/64,32)
+        plt.plot(x32, Nk32_FR_avg, 'r^', x32, Nk32_FR3_avg, 'go', x32, Nk32_FR4_avg, 'ys', mfc='none')
+        plt.plot(x512_4, Nk512_ans_4, 'k')
+        plt.grid()
+        plt.ylabel('$N_k$')
+        plt.xlabel('Distância')
+        plt.title('Resultados para t=0.3 com malha 32x1x1')
+        plt.legend(('CPR-$2^a$ ordem', 'CPR-$3^a$ order', 'CPR-$4^a$ ordem', 'Semi-Analítica'))
+        plt.savefig('results/compositional/FR/Nk_Burgers_32.png')
         import pdb; pdb.set_trace()

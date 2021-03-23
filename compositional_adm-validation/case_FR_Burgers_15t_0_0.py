@@ -25,12 +25,26 @@ Nk_ans = np.empty_like(x)
 for i in range(2000):
     Nk_ans[i] = root_scalar(f, args=(x[i], t), method='toms748', bracket=[-1, 1]).root
 
+
+plt.figure(1)
+plt.plot(x,Nk_ans)
+plt.grid()
+plt.savefig('results/compositional/FR_paper/Burger/Burguer_ref_solution.png')
+with open('Sw_Burguer_ref_sol.txt', 'w') as f2:
+    for item in Nk_ans:
+        f2.write("%s\n" % item)
+
+with open('x_Burguer_re_sol.txt', 'w') as f2:
+    for item in x:
+        f2.write("%s\n" % item)
+
+
 for arq in arquivos:
     if  arq.startswith(name):
 
         '---------------------------Flux Reconstruction------------------------'
         datas = np.load('flying/results_Burger_8_15t_FR2_1501.npy', allow_pickle=True)
-        
+
 
         for data in datas[1:]:
             Nk8_FR = data[12][0].flatten()
@@ -51,7 +65,9 @@ for arq in arquivos:
         datas = np.load('flying/results_Burger_16_15t_FR2_3001.npy', allow_pickle=True)
 
         for data in datas[1:]:
-            Nk16_FR = data[12][0].flatten()
+            Nk16_FRx = data[12][0]
+            Nk16_FR2med = 1/2*np.sum(GL.weights*Nk16_FRx, axis=-1)
+            Nk16_FR = Nk16_FRx.flatten()
             n = 16
             x16_2 = np.empty((n,2))
             for i in range(len(points)):
@@ -430,7 +446,7 @@ for arq in arquivos:
         plt.legend(('FR - 8 CV', 'FR - 16 CV', 'FR - 32 CV', 'FR - 64 CV',
                     'FR - 128 CV', 'FR - 256 CV', 'FR - 512 CV', 'Reference solution'))
         plt.title('Results for 2nd order approximation')
-        plt.savefig('results/compositional/FR/Nk_Burgers_comparison_15t_order2.png')
+        plt.savefig('results/compositional/FR_paper/Burger/Nk_Burgers_comparison_15t_order2.eps', format='eps')
 
         plt.figure(2)
         plt.plot(x8_3, Nk8_FR3, '-b^', x16_3, Nk16_FR3, '-yo', x32_3, Nk32_FR3, '-rv',
@@ -443,7 +459,7 @@ for arq in arquivos:
         plt.legend(('FR - 8 CV', 'FR - 16 CV', 'FR - 32 CV', 'FR - 64 CV',
                     'FR - 128 CV', 'FR - 256 CV', 'FR - 512 CV', 'Reference solution'))
         plt.title('Results for 3rd order approximation')
-        plt.savefig('results/compositional/FR/Nk_Burgers_comparison_15t_order3.png')
+        plt.savefig('results/compositional/FR_paper/Burger/Nk_Burgers_comparison_15t_order3.eps', format='eps')
 
         plt.figure(3)
         plt.plot(x8_4, Nk8_FR4, '-b^', x16_4, Nk16_FR4, '-yo', x32_4, Nk32_FR4, '-rv',
@@ -456,7 +472,7 @@ for arq in arquivos:
         plt.legend(('FR - 8 CV', 'FR - 16 CV', 'FR - 32 CV', 'FR - 64 CV',
                     'FR - 128 CV', 'FR - 256 CV', 'FR - 512 CV', 'Reference solution'))
         plt.title('Results for 4th order approximation')
-        plt.savefig('results/compositional/FR/Nk_Burgers_comparison_15t_order4.png')
+        plt.savefig('results/compositional/FR_paper/Burger/Nk_Burgers_comparison_15t_order4.eps', format='eps')
 
         plt.figure(4)
         x80 = np.linspace(0+1/160, 1-1/160, 80)
@@ -467,7 +483,7 @@ for arq in arquivos:
         plt.ylabel('Nk [mole]')
         plt.legend(('2nd order', 'Reference solution'))
         plt.title('Results for 80 control volumes mesh')
-        plt.savefig('results/compositional/FR/Nk_Burgers_15t_80CV_2.png')
+        plt.savefig('results/compositional/FR_paper/Burger/Nk_Burgers_15t_80CV_2.eps', format='eps')
 
         plt.figure(5)
         plt.plot(x80, Nk80_FR3med, '-bo')
@@ -477,50 +493,62 @@ for arq in arquivos:
         plt.ylabel('Nk [mole]')
         plt.legend(('3rd order', 'Reference solution'))
         plt.title('Results for 80 control volumes mesh')
-        plt.savefig('results/compositional/FR/Nk_Burgers_15t_80CV_3.png')
+        plt.savefig('results/compositional/FR_paper/Burger/Nk_Burgers_15t_80CV_3.eps', format='eps')
 
         plt.figure(7)
-        plt.plot(x80, Nk80_FR4med, '-bo')
+        plt.plot(x80, Nk80_FR4med, 'bo', mfc='none')
         plt.plot(x, Nk_ans, 'k-')
         plt.grid()
-        plt.xlabel('x')
-        plt.ylabel('Nk [mole]')
-        plt.legend(('4th order', 'Reference solution'))
-        plt.title('Results for 80 control volumes mesh')
-        plt.savefig('results/compositional/FR/Nk_Burgers_15t_80CV_4.png')
+        plt.xlabel('Distância')
+        plt.ylabel('Nk [mol]')
+        plt.legend(('CPR-4$^a$ ordem', 'Semi-Analítica'))
+        plt.title('Resultados para malha 80x1x1')
+        plt.savefig('results/compositional/FR_paper/Burger/Nk_Burgers_15t_80CV_4.png')
 
         plt.figure(8)
         x64 = np.linspace(0+1/128, 1-1/128, 64)
         plt.plot(x64[16:32], Nk64_FR4med[16:32], '-bo', x64[16:32], Nk64_FR3med[16:32], '-rv', x64[16:32], Nk64_FR2med[16:32], '-g<')
         plt.plot(x[500:1000], Nk_ans[500:1000], 'k-')
         plt.grid()
-        plt.xlabel('x')
-        plt.ylabel('Nk [mole]')
+        plt.xlabel('Distância')
+        plt.ylabel('Nk [mol]')
         plt.legend(('4th order', '3rd order', '2nd order', 'Reference solution'))
         plt.title('Results for 64 control volumes mesh')
-        plt.savefig('results/compositional/FR/Nk_Burgers_comparison_15t_64CV.png')
+        plt.savefig('results/compositional/FR_paper/Burger/Nk_Burgers_comparison_15t_64CV.eps', format='eps')
 
         plt.figure(9)
         x32 = np.linspace(0+1/64, 1-1/64, 32)
-        plt.plot(x32[8:16], Nk32_FR4med[8:16], '-bo', x32[8:16], Nk32_FR3med[8:16], '-rv', x32[8:16], Nk32_FR2med[8:16], '-g<')
-        plt.plot(x[500:1000], Nk_ans[500:1000], 'k-')
+        plt.plot(x32, Nk32_FR2med, '-bs')
+        plt.plot(x, Nk_ans, 'k-')
         plt.grid()
         plt.xlabel('x')
         plt.ylabel('Nk [mole]')
-        plt.legend(('4th order', '3rd order', '2nd order', 'Reference solution'))
+        plt.legend(('2nd order', 'Reference solution'))
         plt.title('Results for 32 control volumes mesh')
-        plt.savefig('results/compositional/FR/Nk_Burgers_comparison_15t_32CV.png')
+        plt.savefig('results/compositional/FR/Nk_Burgers_FR2_15t_32CV.png')
+
+        plt.figure(11)
+        x16 = np.linspace(0+1/32, 1-1/32, 16)
+        plt.plot(x16, Nk16_FR2med, '-bs')
+        plt.plot(x, Nk_ans, 'k-')
+        plt.grid()
+        plt.xlabel('x')
+        plt.ylabel('Nk [mole]')
+        plt.legend(('2nd order', 'Reference solution'))
+        plt.title('Results for 16 control volumes mesh')
+        plt.savefig('results/compositional/FR/Nk_Burgers_FR2_15t_16CV.png')
 
         plt.figure(10)
         x80 = np.linspace(0+1/160, 1-1/160, 80)
-        plt.plot(x80[32:39], Nk80_FR4med[32:39], 'bo', x80[32:39], Nk80_FR3med[32:39], 'rv', x80[32:39], Nk80_FR2med[32:39], 'g<')
+        plt.plot(x80[32:39], Nk80_FR4med[32:39], 'bo', x80[32:39], Nk80_FR3med[32:39],
+            'rv', x80[32:39], Nk80_FR2med[32:39], 'g<', mfc='none')
         plt.plot(x[800:999], Nk_ans[800:999], 'k-')
         plt.grid()
-        plt.xlabel('x')
-        plt.ylabel('Nk [mole]')
-        plt.legend(('4th order', '3rd order', '2nd order', 'Reference solution'))
-        plt.title('Results for 80 control volumes mesh')
-        plt.savefig('results/compositional/FR/Nk_Burgers_comparison_15t_80CV.png')
+        plt.xlabel('Distância')
+        plt.ylabel('Nk [mol]')
+        plt.legend(('CPR-4$^a$ ordem', 'CPR-3$^a$ ordem', 'CPR-2$^a$ ordem', 'Semi-Analítica'))
+        plt.title('Resultados para malha 80x1x1')
+        plt.savefig('results/compositional/FR_paper/Burger/Nk_Burgers_comparison_15t_80CV.png')
 
         import pdb; pdb.set_trace()
         plt.figure(6)
@@ -536,5 +564,5 @@ for arq in arquivos:
         plt.ylabel('$log_{10}({E}_{L_1})$')
         plt.xlabel('$log_{10}(N)$')
         plt.legend(('FR-2nd order', 'FR-3rd order', 'FR-4th order', 'FR-5th order'))
-        plt.savefig('results/compositional/FR/Nk_Burgers_convergence_15t.png')
+        plt.savefig('results/compositional/FR_paper/Burger/Nk_Burgers_convergence_15t.eps', format='eps')
         import pdb; pdb.set_trace()

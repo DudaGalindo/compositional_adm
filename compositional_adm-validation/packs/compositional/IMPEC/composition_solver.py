@@ -4,7 +4,7 @@ import numpy as np
 
 class Euler:
 
-    def update_composition(self, Nk, q, Fk_vols_total, delta_t):
+    def update_composition(Nk, q, Fk_vols_total, delta_t):
         Nk = Nk + delta_t * (q + Fk_vols_total)
         z = Nk[0:ctes.Nc,:] / np.sum(Nk[0:ctes.Nc,:], axis = 0)
         return Nk, z

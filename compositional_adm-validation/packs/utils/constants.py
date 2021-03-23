@@ -61,8 +61,7 @@ def component_properties():
     global Mw_w
     global Cw
     global Pw
-    global Pb_guess
-
+    
     load_k = data_loaded['hidrocarbon_components']
     load_w = data_loaded['water_component']
     compressible_k = data_loaded['compressible_fluid']

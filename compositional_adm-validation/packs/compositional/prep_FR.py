@@ -107,4 +107,3 @@ def run(M):
     L, dL = Lagrange_poly(n_points, points)
     V = np.polynomial.legendre.legvander(points,n_points-1)
     x_points, v0, vols_vec = auxiliary_terms(M, points, n_points)
-    

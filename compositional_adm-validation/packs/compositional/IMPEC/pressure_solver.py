@@ -3,6 +3,7 @@ from packs.directories import data_loaded
 from packs.utils import constants as ctes
 from scipy import linalg
 import scipy.sparse as sp
+from scipy.sparse.linalg import spsolve
 
 class TPFASolver:
     def __init__(self, fprop):
@@ -11,7 +12,7 @@ class TPFASolver:
     def get_pressure(self, M, wells, fprop, Pold, delta_t):
         T = self.update_transmissibility(M, wells, fprop, delta_t)
         D = self.update_independent_terms(M, fprop, Pold, wells, delta_t)
-        Pnew = self.update_pressure(T, D, fprop)
+        Pnew = self.update_pressure(T, D)
         Ft_internal_faces = self.update_total_flux_internal_faces(M, fprop, Pnew)
         self.update_flux_wells(fprop, Pnew, wells, delta_t)
         return Pnew, Ft_internal_faces, self.q
@@ -36,7 +37,6 @@ class TPFASolver:
 
         self.dVtP = dVtP + dVwP
 
-
     def update_transmissibility(self, M, wells, fprop, delta_t):
         self.t0_internal_faces_prod = fprop.xkj_internal_faces * \
                                       fprop.Csi_j_internal_faces * \
@@ -45,7 +45,7 @@ class TPFASolver:
         ''' Transmissibility '''
         t0 = (self.t0_internal_faces_prod).sum(axis = 1)
         t0 = t0 * ctes.pretransmissibility_internal_faces
-        T = np.zeros([ctes.n_volumes, ctes.n_volumes])
+        T = sp.csr_matrix((ctes.n_volumes, ctes.n_volumes))
 
         # Look for a way of doing this not using a loop!!!
         for i in range(ctes.n_components):
@@ -53,15 +53,16 @@ class TPFASolver:
             cols = np.array([ctes.v0[:, 1], ctes.v0[:, 0], ctes.v0[:, 0], ctes.v0[:, 1]]).flatten()
             data = np.array([-t0[i,:], -t0[i,:], +t0[i,:], +t0[i,:]]).flatten()
 
-            Ta = (sp.csc_matrix((data, (lines, cols)), shape = (ctes.n_volumes, ctes.n_volumes))).toarray()
-            T += Ta * self.dVtk[i, :, np.newaxis]
+            Ta = (sp.csc_matrix((data, (lines, cols)), shape = (ctes.n_volumes, ctes.n_volumes)))#.toarray()
+            #T += Ta*self.dVtk[i, :, np.newaxis]
+            T += Ta.multiply(self.dVtk[i, :, np.newaxis])
 
-        T = T * delta_t
+        T *= delta_t
         ''' Transmissibility diagonal term '''
-        diag = np.diag((ctes.Vbulk * ctes.porosity * ctes.Cf - self.dVtP))
-        T += diag
-
-        self.T_noCC = np.copy(T) #Transmissibility without contour conditions
+        #diag = np.diag((ctes.Vbulk * ctes.porosity * ctes.Cf - self.dVtP))
+        #T += diag
+        T.setdiag(T.diagonal().flatten() + (ctes.Vbulk * ctes.porosity * ctes.Cf - self.dVtP))
+        self.T_noCC = np.copy(T.toarray())#    .toarray() #Transmissibility without contour conditions
 
         ''' Includding contour conditions '''
         T[wells['ws_p'],:] = 0
@@ -98,7 +99,7 @@ class TPFASolver:
                     cap += t0 @ fprop.Pcap[j,:]
 
         gravity_term = grav @ ctes.z
-    
+
         # capillary_term = np.sum(self.dVtk * np.sum (fprop.xkj *
         #         fprop.Csi_j * fprop.mobilities * fprop.Pcap, axis = 1), axis = 0)
         return cap, gravity_term
@@ -113,7 +114,6 @@ class TPFASolver:
     def well_term(self, fprop, wells):
         self.q = np.zeros([ctes.n_components, ctes.n_volumes])
         well_term = np.zeros(ctes.n_volumes)
-
         if len(wells['ws_q']) > 0:
             self.q[:,wells['ws_q']] =  wells['values_q']
             well_term[wells['ws_q']] = np.sum(self.dVtk[:,wells['ws_q']] *
@@ -131,8 +131,9 @@ class TPFASolver:
             fprop.rho_j[0,0,wells['ws_p']] * (ctes.z[wells['ws_p']] - ctes.z[ctes.bhp_ind])
         return independent_terms
 
-    def update_pressure(self, T, D, fprop):
-        P = linalg.solve(T,D)
+    def update_pressure(self, T, D):
+        #P = linalg.solve(T,D)
+        P = spsolve(T,D)
         return P
 
     def update_total_flux_internal_faces(self, M, fprop, Pnew):
@@ -144,6 +145,7 @@ class TPFASolver:
         Ft_internal_faces = - np.sum(fprop.mobilities_internal_faces
             * ctes.pretransmissibility_internal_faces * ((Pot_hidj_up - Pot_hidj) -
             ctes.g * fprop.rho_j_internal_faces * (z_up - z)), axis = 1)
+
         return Ft_internal_faces
 
     def update_flux_wells(self, fprop, Pnew, wells, delta_t):

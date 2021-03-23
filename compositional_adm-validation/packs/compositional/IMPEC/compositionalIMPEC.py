@@ -25,17 +25,7 @@ class CompositionalFVM:
         while (r!=1.):
 
             fprop.Nk = np.copy(Nk_old)
-            #fprop.P, total_flux_internal_faces, q = psolve.get_pressure(M, wells, fprop, P_old, delta_t)
-            v = np.ones((1,ctes.n_internal_faces)) * 3e-7
-
-            q = np.zeros_like(fprop.Nk)
-
-            q[:,wells['all_wells']] = wells['values_q']
-            fprop.q_phase = np.zeros_like(fprop.Nj)
-            fprop.q_phase[-1,:] = q[-1,:]
-
-            total_flux_internal_faces = v
-            dd = q
+            fprop.P, total_flux_internal_faces, q = psolve.get_pressure(M, wells, fprop, P_old, delta_t)
 
             if ctes.MUSCL:
                 #order = data_loaded['compositional_data']['MUSCL']['order']
@@ -49,36 +39,40 @@ class CompositionalFVM:
                 UPW.update_flux(fprop, total_flux_internal_faces,
                                      fprop.rho_j_internal_faces,
                                      fprop.mobilities_internal_faces)
-                wave_velocity = UPW.wave_velocity_upw(fprop, total_flux_internal_faces)
+                wave_velocity = UPW.wave_velocity_upw(M, fprop, P_old, total_flux_internal_faces)
 
             ''' For the composition calculation the time step might be different\
              because it treats composition explicitly and this explicit models \
              are conditionally stable - which can be based on the CFL parameter '''
 
-            #delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
-            #r = delta_t_new/delta_t
-            #if r>1: delta_t = delta_t_new
-            r=1
+            delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
+            r = delta_t_new/delta_t
+            delta_t = delta_t_new
 
         if not ctes.FR:
             fprop.Nk, fprop.z = Euler().update_composition(fprop.Nk, q,
                 fprop.Fk_vols_total, delta_t)
-
         else:
             fprop.Nk = Nk; fprop.z = z; fprop.Nk_SP = Nk_SP
-        fprop.wave_velocity = wave_velocity
 
+        fprop.wave_velocity = wave_velocity
+        fprop.total_flux_internal_faces = total_flux_internal_faces
+        if any(fprop.xkj.sum(axis=0).flatten()>1+1e-10): import pdb; pdb.set_trace()
+        if len(fprop.Nk[fprop.Nk<0]>1): import pdb; pdb.set_trace()
+        if fprop.P[0]<fprop.P[1]: import pdb; pdb.set_trace()
         return delta_t
 
     def update_gravity_term(self, fprop):
-        self.G = ctes.g * fprop.rho_j * ctes.z
+        if any((ctes.z - ctes.z[0]) != 0):
+            self.G = ctes.g * fprop.rho_j * ctes.z
+        else:
+            self.G = np.zeros_like(fprop.rho_j)
 
     def get_faces_properties_upwind(self, fprop):
         ''' Using one-point upwind approximation '''
         Pot_hid = fprop.P + fprop.Pcap - self.G[0,:,:]
         Pot_hidj = Pot_hid[:,ctes.v0[:,0]]
         Pot_hidj_up = Pot_hid[:,ctes.v0[:,1]]
-
 
         fprop.mobilities_internal_faces = np.zeros([1, ctes.n_phases, ctes.n_internal_faces])
         mobilities_vols = fprop.mobilities[:,:,ctes.v0[:,0]]

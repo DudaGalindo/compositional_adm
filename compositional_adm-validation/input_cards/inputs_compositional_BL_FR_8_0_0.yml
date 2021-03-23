@@ -1,6 +1,6 @@
 #Compressive Oil case with 1 component in 1-D reservoir
 mesh_name: 8x1x1_BL_FR.msh
-name_save_file: 'results_BL_8_FR4'
+name_save_file: 'results_BL_8_upw'
 
 compositional: True
 hidrocarbon_components: True
@@ -30,7 +30,7 @@ compositional_data:
   MUSCL:
     set: false
   FR:
-    set: true
+    set: false
     order: 4
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [129600000]
@@ -140,7 +140,7 @@ Wells:
 
   P2:
     p0: [262.5, 0.0, 0]
-    p1: [300, 1, 1]
+    p1: [300, 1., 1.]
     prescription: Q
     type: Producer
     type_region: box

@@ -59,6 +59,7 @@ class PropertiesCalc:
 
         self.update_capillary_pressure(fprop)
 
+
     def update_water_properties(self, M, fprop):
         if data_loaded['compositional_data']['water_data']['mobility']:
             M.data['saturation'], fprop.Csi_W, fprop.rho_W = \
@@ -92,11 +93,8 @@ class PropertiesCalc:
         For now, this only works for constant Nk distribution'
         #x = Symbol('x')
         #Nk_vols_no_wells = fprop.Nk[:,ctes.vols_no_wells]
-        Sw_SP = np.ones((ctes.n_volumes,ctes_FR.n_points)) * 0
         Nk_SP = np.ones((ctes.n_components,ctes.n_volumes,ctes_FR.n_points))
-        Nk_SP[-1,:] = Sw_SP * fprop.Csi_W0[0] * fprop.Vp[0]
-        Nk_SP[0:-1,:] =  Nk_SP[0:-1,:] * fprop.Nk[0:-1,:,np.newaxis]
-        Nk_SP[0:-1,0,0:] =  fprop.Nk[0:-1,1,np.newaxis]
+        Nk_SP = Nk_SP * fprop.Nk[:,:,np.newaxis]
         return Nk_SP
 
     def update_porous_volume(self, P):
@@ -132,7 +130,6 @@ class PropertiesCalc:
 
         if ctes.load_w:
             fprop.Nj[0,ctes.n_phases-1,:] = fprop.Nk[ctes.n_components-1,:]
-        else: fprop.Nj[0,ctes.n_phases-1,:] = np.zeros(ctes.n_volumes)
 
     def update_total_volume(self, fprop):
         fprop.Vt = np.sum(fprop.Nj / fprop.Csi_j, axis = 1).ravel()
@@ -151,12 +148,14 @@ class PropertiesCalc:
     def update_phase_viscosities(self, fprop, Csi_j, xkj):
         phase_viscosities = np.empty_like(Csi_j)
         if ctes.load_k:
-            #phase_viscosity = self.phase_viscosity_class(fprop, Csi_j)
-            phase_viscosities[0,0:2,:] = 1e-3*np.ones([2,len(Csi_j[0,0,:])]) #0.02 only for BL test. for BL_Darlan use 1e-3
+            phase_viscosity = self.phase_viscosity_class(fprop, Csi_j)
+            #phase_viscosities[0,0:2,:] = 1e-3*np.ones([2,len(Csi_j[0,0,:])]) #0.02 only for BL test. for BL_Darlan use 1e-3
             #phase_viscosities[0,0:2,:] = 0.001*np.ones([2,len(Csi_j[0,0,:])]) #only for Dietz test
-            #phase_viscosities[0,0:2,:] = phase_viscosity(fprop, xkj)
+            phase_viscosities[0,0:2,:] = phase_viscosity(fprop, xkj)
+
         if ctes.load_w:
             phase_viscosities[0,ctes.n_phases-1,:] = data_loaded['compositional_data']['water_data']['mi_W']
+
         return phase_viscosities
 
     def update_mobilities(self, fprop, So, Sg, Sw, Csi_j, xkj):
