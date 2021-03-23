@@ -15,9 +15,9 @@ class CubicRoots:
         return real_roots
 
     def get_delta(self, coef):
-        Q = 2 * coef[1]**3 / 27 - coef[1] * coef[2] / 3 + coef[3]
-        P = - coef[1]**2 / 3 + coef[2]
-        delta = (Q / 2)**2 + (P / 3)**3
+        Q = 2 * coef[1]*coef[1]*coef[1] / 27 - coef[1] * coef[2] / 3 + coef[3]
+        P = - coef[1]*coef[1] / 3 + coef[2]
+        delta = (Q / 2)*(Q / 2) + (P / 3)*(P / 3)*(P / 3)
         return Q, delta
 
     def get_omegas(self):
@@ -31,7 +31,7 @@ class CubicRoots:
         aux = np.ones(len(Q), dtype=np.complex) #creating for errors that was having in sqrt numpy function
         aux[delta < 0] = 1j
         delta[delta < 0] = -delta[delta < 0]
-        
+
         xs_args[0,:] = - Q/2 + (delta)**(1/2) * aux
         xs_args[1,:] = - Q/2 - (delta)**(1/2) * aux
         real_args = np.isreal(xs_args)

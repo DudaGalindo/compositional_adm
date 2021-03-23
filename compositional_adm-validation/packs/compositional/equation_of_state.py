@@ -24,7 +24,7 @@ class PengRobinson:
 
     def coefficients_cubic_EOS_vectorized(self, l, P):
         self.bm = np.sum(l * self.b[:,np.newaxis], axis = 0)
-        l_reshape = np.ones((self.aalpha_ik).shape)[:,:,np.newaxis] * l[:,np.newaxis,:]
+        l_reshape = np.ones_like(self.aalpha_ik)[:,:,np.newaxis] * l[:,np.newaxis,:]
         self.aalpha = (l_reshape * l[np.newaxis,:,:] * self.aalpha_ik[:,:,np.newaxis]).sum(axis=0).sum(axis=0)
         B = self.bm * P / (ctes.R* self.T)
         A = self.aalpha * P / (ctes.R* self.T) ** 2
@@ -35,8 +35,8 @@ class PengRobinson:
         coef = np.empty([4,len(B.ravel())])
         coef[0,:] = 1
         coef[1,:] = -(1 - B)
-        coef[2,:] = (A - 2*B - 3*B**2)
-        coef[3,:] = -(A*B - B**2 - B**3)
+        coef[2,:] = (A - 2*B - 3*B*B)
+        coef[3,:] = -(A*B - B*B - B*B*B)
         Z = CubicRoots().run(coef)
         root = np.isreal(Z)
         n_reais = np.sum(root*1, axis = 1)
@@ -62,8 +62,8 @@ class PengRobinson:
         Zneg2 = Z[lines_Zneg2]
         Zneg2[Zneg2<0] = np.repeat(np.max(Z[lines_Zneg2],axis=1, initial=0),2)
         Z[lines_Zneg2] = Zneg2
-        
-        Zsave = Z
+
+        #Zsave = Z
         Z = np.min(Z, axis = 1) * ph + np.max(Z, axis = 1) * (1 - ph)
         Z = np.real(Z)
         return Z
@@ -72,7 +72,7 @@ class PengRobinson:
         xkj = l
         A, B = self.coefficients_cubic_EOS_vectorized(l, P)
         Z = self.Z_vectorized(A, B, ph)
-        dd = (Z[np.newaxis,:] + (1 - 2 ** (1/2)) * B[np.newaxis,:])
+        #dd = (Z[np.newaxis,:] + (1 - 2 ** (1/2)) * B[np.newaxis,:])
         lnphi = self.lnphi_calculation(A, B, Z)
         return lnphi
 
