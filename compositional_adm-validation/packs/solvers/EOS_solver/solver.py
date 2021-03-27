@@ -15,14 +15,16 @@ class CubicRoots:
         return real_roots
 
     def get_delta(self, coef):
-        Q = 2 * coef[1]*coef[1]*coef[1] / 27 - coef[1] * coef[2] / 3 + coef[3]
-        P = - coef[1]*coef[1] / 3 + coef[2]
+        coef1_square = coef[1]*coef[1]
+        Q = 2 * coef1_square*coef[1] / 27 - coef[1] * coef[2] / 3 + coef[3]
+        P = - coef1_square / 3 + coef[2]
         delta = (Q / 2)*(Q / 2) + (P / 3)*(P / 3)*(P / 3)
         return Q, delta
 
     def get_omegas(self):
         omega = (-1 + 1j*np.sqrt(3))/2
-        omegas  = np.array([[1,1],[omega,omega**2],[omega**2,omega]])
+        omega_square = omega**2
+        omegas  = np.array([[1,1],[omega,omega_square],[omega_square,omega]])
         return omegas
 
     def get_model_roots(self, omegas, Q, delta):
@@ -32,12 +34,16 @@ class CubicRoots:
         aux[delta < 0] = 1j
         delta[delta < 0] = -delta[delta < 0]
 
-        xs_args[0,:] = - Q/2 + (delta)**(1/2) * aux
-        xs_args[1,:] = - Q/2 - (delta)**(1/2) * aux
+        delta_sqrtAUX = (delta)**(1/2) * aux
+        Q_2 = Q/2
+        xs_args[0,:] = - Q_2 + delta_sqrtAUX
+        xs_args[1,:] = - Q_2 - delta_sqrtAUX
         real_args = np.isreal(xs_args)
         xs_args[real_args] = np.cbrt(np.real(xs_args[real_args])) + 0j
         xs_args[~real_args] = (xs_args[~real_args])**(1/3)
-        X = omegas@xs_args
+        #X = omegas@xs_args
+        X_aux = omegas * xs_args.T[:,np.newaxis,:]
+        X = X_aux.sum(axis=-1).T
         return X
 
     def get_actual_roots(self, coef, X):
