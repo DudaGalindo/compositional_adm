@@ -154,7 +154,7 @@ class RiemannSolvers:
     def get_extrapolated_properties(self, fprop, M, Nk_face, z_face, P_face, Vp, v, ponteiro):
         xkj_face = np.empty((ctes.n_components, ctes.n_phases, len(P_face)))
         Csi_j_face = np.empty((1, ctes.n_phases, len(P_face)))
-        rho_j_face = np.empty((1, ctes.n_phases, len(P_face)))
+        rho_j_face = np.empty_like(Csi_j_face)
 
         ''' Flash calculations and properties calculations at each side of the \
         interface '''
@@ -251,61 +251,74 @@ class RiemannSolvers:
         dFkdNk_eigvalue = eigval1.T
         return dFkdNk_eigvalue
 
-
     def wave_velocity(self, M, fprop, Nk_face, P_face, ftotal, ponteiro):
         delta = 0.001
 
+        Nk_aux_matrix = np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
+        matrix_deltas = np.identity(ctes.n_components)[:,:,np.newaxis, np.newaxis] * Nk_aux_matrix
+        delta_05 = delta * 0.5 * matrix_deltas
         Nkm = (Nk_face[:,ponteiro,1] + Nk_face[:,ponteiro,0])/2
 
         Nkg = Nkm[:,:,np.newaxis] + (Nk_face[:,ponteiro] - Nkm[:,:,np.newaxis])/(3**(1/2))
-
-        Nkg_plus = Nkg[np.newaxis,...] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
-        Nkg_minus = Nkg[np.newaxis,...] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
-        matrix_deltas = np.identity(ctes.n_components)[:,:,np.newaxis, np.newaxis] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]),2])
-        Nkg_plus += delta * 0.5 * matrix_deltas
-        Nkg_minus -= delta * 0.5 * matrix_deltas
+        Nkg_aux = Nkg[np.newaxis,...] * Nk_aux_matrix
+        Nkg_plus = np.copy(Nkg_aux)
+        Nkg_minus = np.copy(Nkg_aux)
+        Nkg_plus += delta_05
+        Nkg_minus -= delta_05
         Nkg_plus[Nkg_minus<0] = 2*Nkg_plus[Nkg_minus<0]
         Nkg_minus[Nkg_minus<0] = 0
-        Nkg_plus = np.concatenate(np.split(Nkg_plus, ctes.n_components),axis=2)[0,...]
-        Nkg_minus = np.concatenate(np.split(Nkg_minus, ctes.n_components),axis=2)[0,...]
-        Nkg_plus = np.concatenate(np.dsplit(Nkg_plus, 2),axis=1)[:,:,0]
-        Nkg_minus = np.concatenate(np.dsplit(Nkg_minus, 2),axis=1)[:,:,0]
-        dFkdNk_gauss = ((self.Fk_from_Nk(fprop, M, Nkg_plus, P_face, np.tile(ftotal[:,ponteiro],ctes.n_components*2),ponteiro) -
-        self.Fk_from_Nk(fprop, M, Nkg_minus, P_face, np.tile(ftotal[:,ponteiro],ctes.n_components*2), ponteiro))/(Nkg_plus - Nkg_minus).sum(axis=0))
-        dFkdNk_gauss = np.concatenate(np.hsplit(dFkdNk_gauss[:,:,np.newaxis],2),axis=2)
-        dFkdNk_gauss = np.concatenate(np.hsplit(dFkdNk_gauss[:,:,:,np.newaxis],ctes.n_components),axis=3)
-        dFkdNk_gauss = dFkdNk_gauss.transpose(2,1,0,3)
+        Nkgs = np.concatenate((Nkg_plus,Nkg_minus),axis=-1)
+        Nkgs = np.concatenate(np.split(Nkgs, ctes.n_components),axis=2)[0,...]
+        Nkgs = np.concatenate(np.dsplit(Nkgs, 4),axis=1)[...,0]
 
-        Nkm_plus = Nkm[np.newaxis,:,:] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro])])
-        Nkm_minus = Nkm[np.newaxis,:,:] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro])])
-        matrix_deltas = np.identity(ctes.n_components)[:,:,np.newaxis] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro])])
-        Nkm_plus  += delta * 0.5 * matrix_deltas
-        Nkm_minus -= delta * 0.5 * matrix_deltas
-        Nkm_plus[Nkm_minus<0] = 2 * Nkm_plus[Nkm_minus<0]
-        Nkm_minus[Nkm_minus<0] = 0
-        Nkm_plus = np.concatenate(np.split(Nkm_plus, ctes.n_components),axis=2)[0,...]
-        Nkm_minus = np.concatenate(np.split(Nkm_minus, ctes.n_components),axis=2)[0,...]
-        dFkdNk_m = ((self.Fk_from_Nk(fprop, M, Nkm_plus, P_face, np.tile(ftotal[:,ponteiro],ctes.n_components), ponteiro) -
-        self.Fk_from_Nk(fprop, M, Nkm_minus, P_face, np.tile(ftotal[:,ponteiro],ctes.n_components), ponteiro))/ (Nkm_plus - Nkm_minus).sum(axis=0))
-        dFkdNk_m = np.concatenate(np.hsplit(dFkdNk_m[:,:,np.newaxis],ctes.n_components),axis = 2)
-        dFkdNk_m = dFkdNk_m.transpose(1,0,2)
 
-        Nk_face_plus = Nk_face[np.newaxis,:,ponteiro,:] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
-        Nk_face_minus = Nk_face[np.newaxis,:,ponteiro,:] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
-        matrix_deltas = np.identity(ctes.n_components)[:,:,np.newaxis, np.newaxis] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]),2])
+        Nk_face_aux = Nk_face[np.newaxis,:,ponteiro,:] * Nk_aux_matrix
+        Nk_face_plus = np.copy(Nk_face_aux)
+        Nk_face_minus = np.copy(Nk_face_aux)
         Nk_face_plus += delta * 0.5 * matrix_deltas
         Nk_face_minus -= delta * 0.5 * matrix_deltas
         Nk_face_plus[Nk_face_minus<0] = 2 * Nk_face_plus[Nk_face_minus<0]
         Nk_face_minus[Nk_face_minus<0] = 0
-        Nk_face_plus = np.concatenate(np.split(Nk_face_plus, ctes.n_components),axis=2)[0,...]
-        Nk_face_minus = np.concatenate(np.split(Nk_face_minus, ctes.n_components),axis=2)[0,...]
-        Nk_face_plus = np.concatenate(np.dsplit(Nk_face_plus, 2),axis=1)[:,:,0]
-        Nk_face_minus = np.concatenate(np.dsplit(Nk_face_minus, 2),axis=1)[:,:,0]
-        dFkdNk = ((self.Fk_from_Nk(fprop, M, Nk_face_plus, P_face, np.tile(ftotal[:,ponteiro],ctes.n_components*2), ponteiro) -
-        self.Fk_from_Nk(fprop, M, Nk_face_minus, P_face, np.tile(ftotal[:,ponteiro],ctes.n_components*2), ponteiro))/(Nk_face_plus - Nk_face_minus).sum(axis=0))
+        Nk_faces = np.concatenate((Nk_face_plus,Nk_face_minus),axis=-1)
+        Nk_faces = np.concatenate(np.split(Nk_faces, ctes.n_components),axis=2)[0,...]
+        Nk_faces = np.concatenate(np.dsplit(Nk_faces, 4),axis=1)[...,0]
+
+        Nks = np.concatenate((Nkgs, Nk_faces),axis=-1)
+        Nkg_plus, Nkg_minus, Nk_face_plus, Nk_face_minus = np.hsplit(Nks,4)
+
+        Nkm_aux = Nkm[np.newaxis,:,:] * Nk_aux_matrix[...,0]
+        Nkm_plus = np.copy(Nkm_aux)
+        Nkm_minus = np.copy(Nkm_aux)
+        Nkm_plus  += delta_05[...,0]
+        Nkm_minus -= delta_05[...,0]
+        Nkm_plus[Nkm_minus<0] = 2 * Nkm_plus[Nkm_minus<0]
+        Nkm_minus[Nkm_minus<0] = 0
+        Nkms = np.concatenate((Nkm_plus[...,np.newaxis], Nkm_minus[...,np.newaxis]),axis=-1)
+        Nkms = np.concatenate(np.split(Nkms, ctes.n_components),axis=2)[0,...]
+        Nkms = np.concatenate(np.dsplit(Nkms, 2),axis=1)[...,0]
+        Nkm_plus, Nkm_minus = np.hsplit(Nkms,2)
+        Nks = np.concatenate((Nks, Nkms),axis=-1)
+
+        ft_Nks = np.tile(ftotal[:,ponteiro],ctes.n_components*10)
+
+        Fks = self.Fk_from_Nk(fprop, M, Nks, P_face, ft_Nks, ponteiro)
+
+        Fk_Nkg_plus, Fk_Nkg_minus, Fk_faces_plus, Fk_faces_minus, Fkms = np.hsplit(Fks,5)
+
+        Fkm_plus, Fkm_minus = np.hsplit(Fkms,2)
+        dFkdNk_m = (Fkm_plus - Fkm_minus)/ (Nkm_plus - Nkm_minus).sum(axis=0)
+        dFkdNk_m = np.concatenate(np.hsplit(dFkdNk_m[:,:,np.newaxis],ctes.n_components),axis = 2)
+        dFkdNk_m = dFkdNk_m.transpose(1,0,2)
+
+        dFkdNk = ((Fk_faces_plus - Fk_faces_minus)/(Nk_face_plus - Nk_face_minus).sum(axis=0))
         dFkdNk = np.concatenate(np.hsplit(dFkdNk[:,:,np.newaxis],2),axis=2)
         dFkdNk = np.concatenate(np.hsplit(dFkdNk[:,:,:,np.newaxis],ctes.n_components),axis=3)
         dFkdNk = dFkdNk.transpose(2,1,0,3)
+
+        dFkdNk_gauss = (Fk_Nkg_plus - Fk_Nkg_minus)/(Nkg_plus - Nkg_minus).sum(axis=0)
+        dFkdNk_gauss = np.concatenate(np.hsplit(dFkdNk_gauss[:,:,np.newaxis],2),axis=2)
+        dFkdNk_gauss = np.concatenate(np.hsplit(dFkdNk_gauss[:,:,:,np.newaxis],ctes.n_components),axis=3)
+        dFkdNk_gauss = dFkdNk_gauss.transpose(2,1,0,3)
 
         eigval1, v = np.linalg.eig(dFkdNk)
         dFkdNk_eigvalue = eigval1.T
@@ -664,7 +677,6 @@ class FR:
         Nk_SP = np.copy(Nk_SP_old)
 
         q_SP = q[:,:,np.newaxis] * np.ones_like(Nk_SP)
-
 
         dFk_SP, wave_velocity = self.dFk_SP_from_Pspace(M, fprop, wells, Ft_internal_faces, np.copy(Nk_SP), q_SP, P_old)
         Nk_SP, z_SP = Euler.update_composition(np.copy(Nk_SP_old), q_SP, dFk_SP, delta_t)
