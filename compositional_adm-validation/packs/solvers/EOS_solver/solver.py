@@ -42,6 +42,12 @@ class CubicRoots:
         xs_args[real_args] = np.cbrt(np.real(xs_args[real_args])) + 0j
         xs_args[~real_args] = (xs_args[~real_args])**(1/3)
         #X = omegas@xs_args
+
+        #if len(X.imag[(abs(X.imag)<1e-16) * (abs(X.imag)>0)])>0: import pdb; pdb.set_trace()
+        #aux = X.imag
+        #aux[abs(X.imag)<1e-16] = 0
+        #X.imag = aux
+
         X_aux = omegas * xs_args.T[:,np.newaxis,:]
         X = X_aux.sum(axis=-1).T
         return X

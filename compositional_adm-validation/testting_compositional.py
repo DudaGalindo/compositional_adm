@@ -48,12 +48,9 @@ while run_criteria < stop_criteria:# and loop < loop_max:
         simulation time plus delta_t is equal to the final time'
         if sim.t + sim.delta_t > t_next:
             sim.delta_t = t_next - sim.t
-
-        if loop==3:
-            import pdb; pdb.set_trace()
-
     loop = sim.loop
     print(sim.t)
+
 
 tf = time.time()
 print('Total computational time: ', tf-t) #total simulation time

@@ -1,6 +1,6 @@
 #Compressive Oil case with 1 component in 1-D reservoir
 mesh_name: 100x1x1.msh
-name_save_file: 'results_compressive_oil_case_FR2'
+name_save_file: 'results_compressive_oil_case_MUSCL'
 
 compositional: True
 hidrocarbon_components: True
@@ -29,9 +29,9 @@ compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 0.5
   MUSCL:
-    set: False
-  FR:
     set: true
+  FR:
+    set: false
     order: 3
   vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
   time_to_save: [274752] #, 432000., 589248.0, 745632., 902880, 1059264.0, 1216512., 1372896.0, 1530144.0]
@@ -50,12 +50,12 @@ compositional_data:
 
   time_data:
     deltaPlim: 68.9476
-    deltaNlim: .001
-    deltaSlim: .001
-    deltaVlim: .0005
+    deltaNlim: .1
+    deltaSlim: .1
+    deltaVlim: .001
     delta_t_ini: 10
     delta_tmax: 10000
-    delta_tmin: 0.0001
+    delta_tmin: 100
 
   water_data:
     mi_W: 1e-3

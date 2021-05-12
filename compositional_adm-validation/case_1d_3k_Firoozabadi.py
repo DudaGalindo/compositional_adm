@@ -36,6 +36,7 @@ for  arq in arquivos:
         xCH4 = np.concatenate((xCH4,xCH41))
 
         datas = np.load('flying/results_Hoteit_Firoo_3k_500_upw_82170.npy', allow_pickle=True)
+        datas = np.load('flying/results_Hoteit_Firoo_3k_200_FR_278977.npy', allow_pickle=True)
         #datas = np.load('flying/results_Hoteit_Firoo_3k_500_upw_16187.npy', allow_pickle=True)
         #datas = np.load('flying/results_Hoteit_Firoo_3k_5000_upw_321408.npy', allow_pickle=True)
         for data in datas[datas.shape[0]-1:]:

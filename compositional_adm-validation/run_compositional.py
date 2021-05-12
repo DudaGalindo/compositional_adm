@@ -86,23 +86,23 @@ class run_simulation:
         self.delta_t = CompositionalFVM()(M, wells, fprop, self.delta_t, self.t)
 
         self.t += self.delta_t
-
+        #if self.t>8466000: import pdb; pdb.set_trace()
         '----------------- Perform Phase stability test and flash -------------'
-
+        
         if ctes.load_k :
-
+            #self.p2 = StabilityCheck(fprop.P, fprop.T)
             fprop.L, fprop.V, fprop.xkj[0:ctes.Nc, 0, :], \
             fprop.xkj[0:ctes.Nc, 1, :], fprop.Csi_j[:,0,:], \
             fprop.Csi_j[:,1,:], fprop.rho_j[:,0,:], fprop.rho_j[:,1,:]  =  \
             self.p2.run(wells, fprop.P, np.copy(fprop.z))
 
-            if any(([wells['inj_cond']=='reservoir'])):
+            '''if any(([wells['inj_cond']=='reservoir'])):
                 z = (wells['z'][wells['inj_cond']=='reservoir']).T
                 p_well = StabilityCheck(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']], fprop.T)
 
                 L, V, x, y, Csi_L, Csi_V, rho_L, rho_V  =  \
                 p_well.run_init(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']],z[:ctes.Nc])
-                wells['values_q'][:,wells['inj_cond']=='reservoir'] = fprop.q_vol*(z * Csi_V).sum(axis=0)
+                wells['values_q'][:,wells['inj_cond']=='reservoir'] = fprop.q_vol*(z * Csi_V).sum(axis=0)'''
 
         '----------------------- Update fluid properties ----------------------'
 
@@ -125,7 +125,9 @@ class run_simulation:
         else:
             if self.time_save[0] == 0.0 or self.t in self.time_save:
                 self.update_current_compositional_results(M, wells, fprop, dt)
-                import pdb; pdb.set_trace()
+                #import pdb; pdb.set_trace()
+
+
 
     def update_loop(self):
         ''' Function to count how many loops it has been since the simulation \

@@ -27,11 +27,11 @@ monophasic_data:
 # Case 3 of Li M.Sc. Thesis with case studies
 compositional_data:
   #  Pensar em um jeito de reorganizar isso
-  CFL: 0.7
+  CFL: 0.9
   MUSCL:
     set: False
   FR:
-    set: False
+    set: false
     order: 2
   vpis_para_gravar_vtk: [0.51]
   time_to_save: [2592000]
@@ -51,7 +51,7 @@ compositional_data:
   time_data:
     deltaPlim: 68.9476
     deltaNlim: 10
-    deltaSlim: .25
+    deltaSlim: .35
     deltaVlim: .005
     delta_t_ini: 86.4
     delta_tmax: 86400

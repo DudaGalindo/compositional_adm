@@ -5,12 +5,9 @@ from ..stability_check import StabilityCheck
 from ..properties_calculation import PropertiesCalc
 from .composition_solver import RK3, Euler
 import scipy.sparse as sp
-from sympy import Symbol, diff
-import sympy.utilities.lambdify as lambdify
-from scipy import integrate
-import matplotlib.pyplot as plt
 from packs.compositional import prep_FR as ctes_FR
 import math
+import time
 
 'Todo esse código vai ainda ser ajeitado! As funções de Flux devem ser funçoes para \
 calculo independente do fluxo. Funcoes de rotina. E algumas funçes do MUSCL devem também \
@@ -23,7 +20,8 @@ class Flux:
     other properties to be taken as function of the potencial gradient. But here \
     flux is computed at the interfaces, and then, volumes, only that."""
 
-    def update_flux(self, fprop, Ft_internal_faces, rho_j_internal_faces, mobilities_internal_faces):
+    def update_flux(self, M, fprop, P_old, Ft_internal_faces, rho_j_internal_faces,
+        mobilities_internal_faces):
         ''' Main function that calls others '''
         self.Nk = fprop.Nk
         Fj_internal_faces = self.update_Fj_internal_faces(Ft_internal_faces,
@@ -31,7 +29,10 @@ class Flux:
             ctes.z[ctes.v0], ctes.pretransmissibility_internal_faces)
         Fk_internal_faces = self.update_Fk_internal_faces(
             fprop.xkj_internal_faces, fprop.Csi_j_internal_faces, Fj_internal_faces)
-        fprop.Fk_vols_total = self.update_flux_volumes(Fk_internal_faces)
+        Fk_vols_total = self.update_flux_volumes(Fk_internal_faces)
+
+        wave_velocity = self.wave_velocity_upw(M, fprop, P_old, Fk_internal_faces, Ft_internal_faces)
+        return Fk_vols_total, wave_velocity
 
     def update_Fj_internal_faces(self, Ft_internal_faces, rho_j_internal_faces,
         mobilities_internal_faces, Pcap_face, z_face,
@@ -80,35 +81,27 @@ class Flux:
 
         return Fk_vols_total
 
-    def wave_velocity_upw(self, M, fprop, P_old, Ft_internal_faces):
-        arg = (fprop.Nk[:,ctes.v0[:,1]] - fprop.Nk[:,ctes.v0[:,0]])==0
-        arg_vols = np.sum(arg,axis=0,dtype=bool)
-        alpha = np.empty(arg.shape)
+    def wave_velocity_upw(self, M, fprop, P_old, Fk_internal_faces, Ft_internal_faces):
+        grad = Fk_internal_faces>0 #Pot_hidr(i+1) - Pot_hidr(i)
 
-        Fj_internal_faces_0 = self.update_Fj_internal_faces(Ft_internal_faces,
-            fprop.rho_j[:,:,ctes.v0[:,0]], fprop.mobilities[:,:,ctes.v0[:,0]], fprop.Pcap[:,ctes.v0],
-            ctes.z[ctes.v0], ctes.pretransmissibility_internal_faces)
-        Fk_internal_faces_0 = self.update_Fk_internal_faces(fprop.xkj[:,:,ctes.v0[:,0]],
-            fprop.Csi_j[:,:,ctes.v0[:,0]], Fj_internal_faces_0)
-
-        Fj_internal_faces_1 = self.update_Fj_internal_faces(Ft_internal_faces,
-            fprop.rho_j[:,:,ctes.v0[:,1]], fprop.mobilities[:,:,ctes.v0[:,1]], fprop.Pcap[:,ctes.v0],
-            ctes.z[ctes.v0], ctes.pretransmissibility_internal_faces)
-        Fk_internal_faces_1 = self.update_Fk_internal_faces(fprop.xkj[:,:,ctes.v0[:,1]],
-        fprop.Csi_j[:,:,ctes.v0[:,1]], Fj_internal_faces_1)
-        alpha[~arg] = ((Fk_internal_faces_1 - Fk_internal_faces_0)[~arg] / \
-                    (fprop.Nk[:,ctes.v0[:,1]] - fprop.Nk[:,ctes.v0[:,0]])[~arg])
-
-        alpha[arg] = 1
         Nk_face = fprop.Nk[:,ctes.v0]
-        P_face = np.sum(P_old[ctes.v0], axis=1) * 0.5
-        ponteiro = np.ones_like(P_face, dtype=bool)
-        alpha = fprop.Fk_vols_total
+
+        Nk = Nk_face[:,:,0] * (1 - grad) + Nk_face[:,:,1] * grad
+        P = P_old[ctes.v0[:,0]] * (1 - grad.sum(axis=0,dtype=bool)) + P_old[ctes.v0[:,1]] * grad.sum(axis=0, dtype=bool)
+        if any(P<0): import pdb; pdb.set_trace()
+        Vp = fprop.Vp[ctes.v0[:,0]] * (1 - grad.sum(axis=0,dtype=bool))  + fprop.Vp[ctes.v0[:,0]] * grad.sum(axis=0,dtype=bool)
+
+        ponteiro = np.ones(ctes.n_internal_faces, dtype=bool)
+        ponteiro[~np.sum((Nk_face[:,:,0]!=Nk_face[:,:,1]),axis=0,dtype=bool)] = False
+        #alpha = np.zeros((ctes.n_components,ctes.n_internal_faces))
+        alpha = fprop.Fk_vols_total/fprop.Nk
+        #RS = RiemannSolvers(ctes.v0, ctes.pretransmissibility_internal_faces)
+        #ponteiro[0] = False
+        #alpha = fprop.Fk_vols_total
+        #alpha[:,ponteiro] = RS.medium_wave_velocity(M, fprop, Nk[:,ponteiro], P, Vp[ponteiro], Ft_internal_faces, ponteiro)
         #ponteiro[arg_vols] = True
         #alpha2 = RiemannSolvers(ctes.v0, ctes.pretransmissibility_internal_faces).\
         #         LR_wave_velocity(M, fprop, Nk_face, P_face, Ft_internal_faces, ponteiro)
-
-        #alpha[arg] = np.max(abs(alpha2),axis=2)[arg]
         return alpha
 
 class RiemannSolvers:
@@ -116,19 +109,29 @@ class RiemannSolvers:
         self.v0 = v0
         self.pretransmissibility = pretransmissibility
 
-    def LLF(self, M, fprop, Nk_face, P_face, ftotal, Fk_face, ponteiro):
-        alpha = self.wave_velocity(M, fprop, Nk_face, P_face, ftotal, np.copy(~ponteiro))
-        Fk_internal_faces, alpha_LLF = self.update_flux_LLF(Fk_face[:,~ponteiro,:],
-            Nk_face[:,~ponteiro,:], alpha)
+    def LLF(self, M, fprop, Nk_face, P_face, ftotal, Fk_face, ponteiro_LLF):
+        ponteiro = np.ones_like(ponteiro_LLF[ponteiro_LLF], dtype=bool)
+        ponteiro[~np.sum((Nk_face[:,ponteiro_LLF,0]!=Nk_face[:,ponteiro_LLF,1]),axis=0,dtype=bool)] = False
+        alpha = np.empty((ctes.n_components, len(ponteiro_LLF[ponteiro_LLF]), 5))
+        alpha[:,ponteiro] = self.wave_velocity_LLF(M, fprop, Nk_face[:,ponteiro_LLF],
+                        P_face[ponteiro_LLF], ftotal[:,ponteiro_LLF], np.copy(ponteiro))
+        alpha[:,~ponteiro] = 0
+        Fk_internal_faces, alpha_LLF = self.update_flux_LLF(Fk_face[:,ponteiro_LLF], Nk_face[:,ponteiro_LLF], alpha)
         return Fk_internal_faces, alpha_LLF
 
+    def MDW(self, M, fprop, Nk_face, P_face, ftotal, Fk_face, ponteiro_MDW):
+        ponteiro = np.ones_like(ponteiro_MDW[ponteiro_MDW], dtype=bool)
+        ponteiro[~np.sum((Nk_face[:,ponteiro_MDW,0]!=Nk_face[:,ponteiro_MDW,1]),axis=0,dtype=bool)] = False
+        alpha_MDW = np.zeros((len(ponteiro_MDW[ponteiro_MDW]), 4))
+        alpha_MDW[ponteiro] = self.wave_velocity_MDW( M, fprop, Nk_face[:,ponteiro_MDW],
+                P_face[ponteiro_MDW], ftotal[:,ponteiro_MDW], Fk_face[:,ponteiro_MDW], np.copy(ponteiro))
+        Fk_internal_faces = self.update_flux_MDW(Fk_face[:,ponteiro_MDW], Nk_face[:,ponteiro_MDW], alpha_MDW)
+        return Fk_internal_faces, alpha_MDW
+
     def reshape_constant_property(self, y, ponteiro, v):
-        try:
-            y_aux0 = y[self.v0][ponteiro,0]
-            y_aux1 = y[self.v0][ponteiro,1]
-        except:
-            y_aux0 = y[:,self.v0][:,ponteiro,0]
-            y_aux1 = y[:,self.v0][:,ponteiro,1]
+
+        y_aux0 = y[self.v0][:,ponteiro,0]
+        y_aux1 = y[self.v0][:,ponteiro,1]
 
         y_reshaped1 = np.tile(y_aux0,(int(v/2) * \
             (np.sign(v - ctes.n_components)**2) + int(v)*(1 - np.sign(v -
@@ -139,6 +142,10 @@ class RiemannSolvers:
 
         y_reshaped = np.concatenate((y_reshaped1, y_reshaped2), axis=-1)
 
+        if v==3:
+            y_reshaped3 = (y_aux0 + y_aux1)*0.5
+            y_reshaped = np.concatenate((y_reshaped, y_reshaped3))
+
         if ctes.FR:
             if self.v0.shape[1] >= 3:
                 y_reshaped = y_aux0
@@ -148,10 +155,9 @@ class RiemannSolvers:
                     except:
                         y_reshaped_i = y[:,self.v0][:,ponteiro,i]
                     y_reshaped = np.concatenate((y_reshaped, y_reshaped_i), axis=-1)
-
         return y_reshaped
 
-    def get_extrapolated_properties(self, fprop, M, Nk_face, z_face, P_face, Vp, v, ponteiro):
+    def get_extrapolated_properties(self, fprop, M, Nk_face, z_face, P_face, Vp_face, v, ponteiro):
         xkj_face = np.empty((ctes.n_components, ctes.n_phases, len(P_face)))
         Csi_j_face = np.empty((1, ctes.n_phases, len(P_face)))
         rho_j_face = np.empty_like(Csi_j_face)
@@ -166,8 +172,10 @@ class RiemannSolvers:
         else:
             L_face = np.ones(len(P_face)); V_face = np.zeros(len(P_face))
             xkj_face[0:ctes.Nc,0:2,:] = 1
-            rho_j_face[0,0:2,:] = self.reshape_constant_property(fprop.rho_j[0,0:2,:], ponteiro, v)
-            Csi_j_face[0,0:2,:] = self.reshape_constant_property(fprop.Csi_j[0,0:2,:], ponteiro, v)
+            rho_j_face[0,0:2,:] = np.tile(fprop.rho_j[0,0:2,self.v0[ponteiro,0]], v) #constante, independe da pressao
+            #self.reshape_constant_property(fprop.rho_j[0,0:2,:], ponteiro, v)
+            Csi_j_face[0,0:2,:] = np.tile(fprop.Csi_j[0,0:2,self.v0[ponteiro,0]], v)
+            #self.reshape_constant_property(fprop.Csi_j[0,0:2,:], ponteiro, v)
 
 
         if ctes.load_w:
@@ -176,20 +184,23 @@ class RiemannSolvers:
             xkj_face[0:ctes.Nc,-1,...] = 0
 
             if data_loaded['compositional_data']['water_data']['mobility']:
-                Csi_W0_face = self.reshape_constant_property(fprop.Csi_W0, ponteiro, v)
-
+                # Csi_W0 é constante independente de qualquer coisa(por teoria)
+                Csi_W0_face = np.tile(fprop.Csi_W0[self.v0[ponteiro,0]], v)
+                #self.reshape_constant_property(fprop.Csi_W0, ponteiro, v)
                 Sw_face, Csi_j_face[0,-1,...], rho_j_face[0,-1,...] = \
                 PropertiesCalc().update_water_saturation(fprop, Nk_face[-1,...],
-                P_face, Vp, Csi_W0_face)
+                P_face, Vp_face, Csi_W0_face)
 
             else:
-                Sw_face = self.reshape_constant_property(fprop.Sw, ponteiro, v)
-                rho_j_face[0,-1] = self.reshape_constant_property(fprop.rho_j[0,-1], ponteiro, v)
-                Csi_j_face[0,-1] = self.reshape_constant_property(fprop.Csi_j[0,-1], ponteiro, v)
+                # se não movel, prop constante (no varia com P)
+                Sw_face = np.tile(fprop.Sw[self.v0[ponteiro,0]], v)
+                #self.reshape_constant_property(fprop.Sw, ponteiro, v)
+                rho_j_face[0,-1] = np.tile(fprop.rho_j[0,-1,self.v0[ponteiro,0]], v)
+                #self.reshape_constant_property(fprop.rho_j[0,-1], ponteiro, v)
+                Csi_j_face[0,-1] = np.tile(fprop.Csi_j[0,-1,self.v0[ponteiro,0]], v)
+                #self.reshape_constant_property(fprop.Csi_j[0,-1], ponteiro, v)
         else:
-            Sw_face = self.reshape_constant_property(fprop.Sw, ponteiro, v)
-            rho_j_face[0,-1] = self.reshape_constant_property(fprop.rho_j[0,-1], ponteiro, v)
-            Csi_j_face[0,-1] = self.reshape_constant_property(fprop.Csi_j[0,-1], ponteiro, v)
+            Sw_face = np.tile(fprop.Sw[self.v0[ponteiro,0]],v)
 
         So_face, Sg_face =  PropertiesCalc().update_saturations(Sw_face,
             Csi_j_face, L_face, V_face)
@@ -199,16 +210,14 @@ class RiemannSolvers:
 
         return mobilities_face, rho_j_face, Csi_j_face, xkj_face
 
-    def Fk_from_Nk(self, fprop, M, Nk, P_face, ftotal, ponteiro):
+    def Fk_from_Nk(self, fprop, M, Nk, P_face, Vp_face, ftotal, ponteiro):
         ''' Function to compute component flux based on a given composition (Nk) '''
 
         v = int(len(Nk[0,:])/len(ponteiro[ponteiro]))
         z = Nk[0:ctes.Nc] / np.sum(Nk[0:ctes.Nc], axis = 0)
 
-        Vp_reshaped = self.reshape_constant_property(fprop.Vp, ponteiro, v)
-
         mobilities, rho_j, Csi_j, xkj = self.get_extrapolated_properties(fprop, M, Nk, z,
-        np.tile(P_face[ponteiro],v), Vp_reshaped, v, ponteiro)
+        np.tile(P_face,v), Vp_face, v, ponteiro)
 
         f = Flux()
 
@@ -221,37 +230,48 @@ class RiemannSolvers:
         return Fk
 
     def get_Fk_face(self, fprop, M, Nk_face, P_face, ftotal):
-        ''' Function that computes the flux in each face side (Left and Right)'''
-
-        Fk_face = self.Fk_from_Nk(fprop, M, np.concatenate((Nk_face[:,:,0],Nk_face[:,:,1]),axis=1), P_face,
-            np.tile(ftotal[:,ponteiro],2), np.ones(len(ftotal[0,:]), dtype=bool))
-
-        Fk_face = np.concatenate(np.hsplit(Fk_face[:,:,np.newaxis],2),axis = 2)
+        ft_Nks = np.tile(ftotal,2)
+        Nks = np.concatenate((Nk_face[:,:,0], Nk_face[:,:,1]), axis=1)
+        Vp_face = np.concatenate((fprop.Vp[ctes.v0[:,0]], fprop.Vp[ctes.v0[:,1]]), axis=0)
+        Fk_faces = self.Fk_from_Nk(fprop, M, Nks, P_face, Vp_face, ft_Nks, np.ones_like(ftotal[0], dtype=bool))
+        Fk_faceL, Fk_faceR = np.hsplit(Fk_faces, 2)
+        Fk_face = np.concatenate((Fk_faceL[:,:,np.newaxis], Fk_faceR[:,:,np.newaxis]), axis=-1)
         return Fk_face
 
-    def LR_wave_velocity(self, M, fprop, Nk_face, P_face, ftotal, ponteiro):
+    def medium_wave_velocity(self, M, fprop, Nk, P_face, Vp, ftotal, ponteiro):
         delta = 0.001
+        Nk_aux_matrix = np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]),2])
+        matrix_deltas = np.identity(ctes.n_components)[:,:,np.newaxis, np.newaxis] * Nk_aux_matrix
+        delta_05 = delta * 0.5 * matrix_deltas
+        #Nkm = (Nk_face[:,ponteiro,1] + Nk_face[:,ponteiro,0])/2
 
-        Nk_face_plus = Nk_face[np.newaxis,:,ponteiro,:] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
-        Nk_face_minus = Nk_face[np.newaxis,:,ponteiro,:] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
-        matrix_deltas = np.identity(ctes.n_components)[:,:,np.newaxis, np.newaxis] * np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]),2])
-        Nk_face_plus += delta * 0.5 * matrix_deltas
-        Nk_face_minus -= delta * 0.5 * matrix_deltas
-        Nk_face_plus = np.concatenate(np.split(Nk_face_plus, ctes.n_components),axis=2)[0,...]
-        Nk_face_minus = np.concatenate(np.split(Nk_face_minus, ctes.n_components),axis=2)[0,...]
-        Nk_face_plus = np.concatenate(np.dsplit(Nk_face_plus, 2),axis=1)[:,:,0]
-        Nk_face_minus = np.concatenate(np.dsplit(Nk_face_minus, 2),axis=1)[:,:,0]
-        dFkdNk = ((self.Fk_from_Nk(fprop, M, Nk_face_plus, P_face, np.tile(ftotal[:,ponteiro],ctes.n_components*2), ponteiro) -
-        self.Fk_from_Nk(fprop, M, Nk_face_minus, P_face, np.tile(ftotal[:,ponteiro],ctes.n_components*2), ponteiro))/(Nk_face_plus - Nk_face_minus).sum(axis=0))
-        dFkdNk = np.concatenate(np.hsplit(dFkdNk[:,:,np.newaxis],2),axis=2)
-        dFkdNk = np.concatenate(np.hsplit(dFkdNk[:,:,:,np.newaxis],ctes.n_components),axis=3)
-        dFkdNk = dFkdNk.transpose(2,1,0,3)
+        Nk_aux = Nk[np.newaxis,:,:] * Nk_aux_matrix[...,0]
+        Nk_plus = np.copy(Nk_aux)
+        Nk_minus = np.copy(Nk_aux)
+        Nk_plus  += delta_05[...,0]
+        Nk_minus -= delta_05[...,0]
+        Nk_plus[Nk_minus<0] = 2 * Nk_plus[Nk_minus < 0]
+        Nk_minus[Nk_minus<0] = 0
+        Nks = np.concatenate((Nk_plus[...,np.newaxis], Nk_minus[...,np.newaxis]),axis=-1)
+        Nks = np.concatenate(np.split(Nks, ctes.n_components),axis=2)[0,...]
+        Nks = np.concatenate(np.dsplit(Nks, 2),axis=1)[...,0]
+        Nk_plus, Nk_minus = np.hsplit(Nks,2)
+
+        ft_Nks = np.tile(ftotal[:,ponteiro],ctes.n_components*2)
+        Vps = np.tile(Vp, ctes.n_components*2)
+
+        Fks = self.Fk_from_Nk(fprop, M, Nks, P_face[ponteiro], Vps, ft_Nks, ponteiro)
+
+        Fk_plus, Fk_minus = np.hsplit(Fks,2)
+        dFkdNk = (Fk_plus - Fk_minus)/ (Nk_plus - Nk_minus).sum(axis=0)
+        dFkdNk = np.concatenate(np.hsplit(dFkdNk[:,:,np.newaxis],ctes.n_components),axis = 2)
+        dFkdNk = dFkdNk.transpose(1,0,2)
 
         eigval1, v = np.linalg.eig(dFkdNk)
         dFkdNk_eigvalue = eigval1.T
         return dFkdNk_eigvalue
 
-    def wave_velocity(self, M, fprop, Nk_face, P_face, ftotal, ponteiro):
+    def wave_velocity_LLF(self, M, fprop, Nk_face, P_face, ftotal, ponteiro):
         delta = 0.001
 
         Nk_aux_matrix = np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
@@ -268,22 +288,21 @@ class RiemannSolvers:
         Nkg_plus[Nkg_minus<0] = 2*Nkg_plus[Nkg_minus<0]
         Nkg_minus[Nkg_minus<0] = 0
         Nkgs = np.concatenate((Nkg_plus,Nkg_minus),axis=-1)
-        Nkgs = np.concatenate(np.split(Nkgs, ctes.n_components),axis=2)[0,...]
-        Nkgs = np.concatenate(np.dsplit(Nkgs, 4),axis=1)[...,0]
-
+        #Nkgs = np.concatenate(np.split(Nkgs, ctes.n_components),axis=2)[0,...]
+        #Nkgs = np.concatenate(np.dsplit(Nkgs, 4),axis=1)[...,0]
 
         Nk_face_aux = Nk_face[np.newaxis,:,ponteiro,:] * Nk_aux_matrix
         Nk_face_plus = np.copy(Nk_face_aux)
         Nk_face_minus = np.copy(Nk_face_aux)
-        Nk_face_plus += delta * 0.5 * matrix_deltas
-        Nk_face_minus -= delta * 0.5 * matrix_deltas
-        Nk_face_plus[Nk_face_minus<0] = 2 * Nk_face_plus[Nk_face_minus<0]
+        Nk_face_plus += delta_05
+        Nk_face_minus -= delta_05
+        Nk_face_plus[Nk_face_minus<0] = 2 * Nk_face_plus[Nk_face_minus < 0]
         Nk_face_minus[Nk_face_minus<0] = 0
         Nk_faces = np.concatenate((Nk_face_plus,Nk_face_minus),axis=-1)
-        Nk_faces = np.concatenate(np.split(Nk_faces, ctes.n_components),axis=2)[0,...]
-        Nk_faces = np.concatenate(np.dsplit(Nk_faces, 4),axis=1)[...,0]
+        Nks = np.concatenate((Nkgs, Nk_faces), axis=-1)
+        Nks = np.concatenate(np.split(Nks, ctes.n_components),axis=2)[0,...]
+        Nks = np.concatenate(np.dsplit(Nks, 8),axis=1)[...,0]
 
-        Nks = np.concatenate((Nkgs, Nk_faces),axis=-1)
         Nkg_plus, Nkg_minus, Nk_face_plus, Nk_face_minus = np.hsplit(Nks,4)
 
         Nkm_aux = Nkm[np.newaxis,:,:] * Nk_aux_matrix[...,0]
@@ -291,7 +310,7 @@ class RiemannSolvers:
         Nkm_minus = np.copy(Nkm_aux)
         Nkm_plus  += delta_05[...,0]
         Nkm_minus -= delta_05[...,0]
-        Nkm_plus[Nkm_minus<0] = 2 * Nkm_plus[Nkm_minus<0]
+        Nkm_plus[Nkm_minus<0] = 2 * Nkm_plus[Nkm_minus < 0]
         Nkm_minus[Nkm_minus<0] = 0
         Nkms = np.concatenate((Nkm_plus[...,np.newaxis], Nkm_minus[...,np.newaxis]),axis=-1)
         Nkms = np.concatenate(np.split(Nkms, ctes.n_components),axis=2)[0,...]
@@ -300,8 +319,15 @@ class RiemannSolvers:
         Nks = np.concatenate((Nks, Nkms),axis=-1)
 
         ft_Nks = np.tile(ftotal[:,ponteiro],ctes.n_components*10)
+        Vp_faceL = np.tile(fprop.Vp[self.v0[ponteiro,0]], ctes.n_components)
+        Vp_faceR = np.tile(fprop.Vp[self.v0[ponteiro,1]], ctes.n_components)
+        Vp_plus = np.concatenate((Vp_faceL, Vp_faceR), axis=0)
+        Vp_faces = np.tile(Vp_plus, 4)
+        Vpm = fprop.Vp[self.v0[ponteiro]].sum(axis=-1)*0.5
+        Vpms = np.tile(Vpm, ctes.n_components*2)
+        Vps = np.concatenate((Vp_faces, Vpms), axis=0)
 
-        Fks = self.Fk_from_Nk(fprop, M, Nks, P_face, ft_Nks, ponteiro)
+        Fks = self.Fk_from_Nk(fprop, M, Nks, P_face[ponteiro], Vps, ft_Nks, ponteiro)
 
         Fk_Nkg_plus, Fk_Nkg_minus, Fk_faces_plus, Fk_faces_minus, Fkms = np.hsplit(Fks,5)
 
@@ -320,6 +346,7 @@ class RiemannSolvers:
         dFkdNk_gauss = np.concatenate(np.hsplit(dFkdNk_gauss[:,:,:,np.newaxis],ctes.n_components),axis=3)
         dFkdNk_gauss = dFkdNk_gauss.transpose(2,1,0,3)
 
+
         eigval1, v = np.linalg.eig(dFkdNk)
         dFkdNk_eigvalue = eigval1.T
         eigval2, v = np.linalg.eig(dFkdNk_gauss)
@@ -327,7 +354,7 @@ class RiemannSolvers:
         eigval3, v = np.linalg.eig(dFkdNk_m)
         dFkdNk_m_eigvalue = eigval3.T
 
-        alpha = np.concatenate((dFkdNk_eigvalue[:,ponteiro], dFkdNk_gauss_eigvalue), axis=-1)
+        alpha = np.concatenate((dFkdNk_eigvalue, dFkdNk_gauss_eigvalue), axis=-1)
         alpha = np.concatenate((alpha, dFkdNk_m_eigvalue[:,:,np.newaxis]), axis=-1)
         return alpha
 
@@ -338,32 +365,75 @@ class RiemannSolvers:
         alpha_LLF[abs(Nk_face_LLF[:,:,1] - Nk_face_LLF[:,:,0])>1e-3] = alpha_RH[abs(Nk_face_LLF[:,:,1] -
             Nk_face_LLF[:,:,0])>1e-3][:,np.newaxis]
         alpha = np.max(abs(alpha_LLF),axis = 0)
-
         Fk_face_LLF = 0.5*(Fk_face_LLF_all.sum(axis=-1) - np.max(abs(alpha),axis=-1) * \
                     (Nk_face_LLF[:,:,1] - Nk_face_LLF[:,:,0]))
+
         return Fk_face_LLF, alpha
+
+    def update_flux_MDW(self, Fk_face, Nk_face, alpha_MDW):
+        Fk_face_MDW = 0.5*(Fk_face.sum(axis=-1) - np.max(abs(alpha_MDW),axis=-1) * \
+                    (Nk_face[:,:,1] - Nk_face[:,:,0]))
+        return Fk_face_MDW
+
+    def wave_velocity_MDW(self, M, fprop, Nk_face, P_face, ftotal, Fk_face, ponteiro):
+        Nk_aux_matrix = np.ones([ctes.n_components, ctes.n_components, len(ponteiro[ponteiro]), 2])
+        Nkm = (Nk_face[:,ponteiro,1] + Nk_face[:,ponteiro,0])/2
+
+        Nkg = Nkm[:,:,np.newaxis] + (Nk_face[:,ponteiro] - Nkm[:,:,np.newaxis])/(3**(1/2))
+
+        Nkgs = np.concatenate((Nkg[:,:,0], Nkg[:,:,1]), axis=1)
+        Nks = np.concatenate((Nkgs, Nkm), axis=1)
+
+        ft_Nks = np.tile(ftotal[:,ponteiro],3)
+
+        Vp_face = np.concatenate((fprop.Vp[ctes.v0[ponteiro,0]], fprop.Vp[ctes.v0[ponteiro,1]]), axis=0)
+        Vpm = np.sum(fprop.Vp[ctes.v0[ponteiro]], axis=-1) * 0.5
+        Vps = np.concatenate((Vp_face, Vpm), axis=-1)
+        Fks = self.Fk_from_Nk(fprop, M, Nks, P_face[ponteiro], Vps, ft_Nks, ponteiro)
+
+        Fk_NkgL, Fk_NkgR, Fk_Nkm = np.hsplit(Fks,3)
+
+        dNkg_Nkface = Nkg - Nk_face[:,ponteiro]
+        dNkg_Nkface[dNkg_Nkface==0] = 1e-30
+
+        dNkm_Nkg = Nkm[:,:,np.newaxis] - Nkg
+        dNkm_Nkg[dNkm_Nkg==0] = 1e-30
+
+        alpha_L_GL = np.sum((dNkg_Nkface[:,:,0]) * (Fk_NkgL - Fk_face[:,ponteiro,0]), axis=0) / \
+                    np.sum((dNkg_Nkface[:,:,0]) * (dNkg_Nkface[:,:,0]), axis=0)
+
+        alpha_GL_M = np.sum((dNkm_Nkg[:,:,0]) * (Fk_Nkm - Fk_NkgL), axis=0) / \
+                    np.sum((dNkm_Nkg[:,:,0]) * (dNkm_Nkg[:,:,0]), axis=0)
+
+        alpha_M_GR = np.sum((-dNkm_Nkg[:,:,1]) * (Fk_NkgR - Fk_Nkm), axis=0) / \
+                    np.sum((-dNkm_Nkg[:,:,1]) * (-dNkm_Nkg[:,:,1]), axis=0)
+
+        alpha_GR_R = np.sum((-dNkg_Nkface[:,:,1]) * (Fk_face[:,ponteiro,1] - Fk_NkgR), axis=0) / \
+                    np.sum((-dNkg_Nkface[:,:,1]) * (-dNkg_Nkface[:,:,1]), axis=0)
+
+        alpha_MDW = np.concatenate((alpha_L_GL[:,np.newaxis], alpha_GL_M[:,np.newaxis]), axis=-1)
+        alpha_MDW = np.concatenate((alpha_MDW, alpha_M_GR[:,np.newaxis]), axis=-1)
+        alpha_MDW = np.concatenate((alpha_MDW, alpha_GR_R[:,np.newaxis]), axis=-1)
+        return alpha_MDW
 
 class MUSCL:
 
     """ Class created for the second order MUSCL implementation for the \
     calculation of the advective terms """
 
-    def run(self, M, fprop, wells, P_old, ftot, t, delta_t):
-        self.t = t+delta_t
+    def run(self, M, fprop, wells, P_old, ftot):
+
         ''' Global function that calls others '''
         self.P_face = np.sum(P_old[ctes.v0], axis=1) * 0.5
         dNk_vols = self.volume_gradient_reconstruction(M, fprop, wells)
         dNk_face, dNk_face_neig = self.get_faces_gradient(M, fprop, dNk_vols)
-        order = 2
-        if order == 2:
-            Phi = self.Van_Leer_slope_limiter(dNk_face, dNk_face_neig)
 
-            Nk_face, z_face = self.get_extrapolated_compositions(fprop, Phi, dNk_face_neig)
-        else:
-            Phi = np.zeros_like(dNk_face_neig)
-            Nk_face, z_face = self.get_extrapolated_compositions(fprop, Phi, dNk_face_neig)
+        Phi = self.Van_Leer_slope_limiter(dNk_face, dNk_face_neig)
+        Nk_face, z_face = self.get_extrapolated_compositions(fprop, Phi, dNk_face_neig)
+
         #G = self.update_gravity_term() # for now, it has no gravity
         alpha = self.update_flux(M, fprop, Nk_face, ftot)
+        alpha = fprop.Fk_vols_total/fprop.Nk
         return alpha
 
     def volume_gradient_reconstruction(self, M, fprop, wells):
@@ -400,11 +470,10 @@ class MUSCL:
         ds_vols = ds_vols.sum(axis = 2)
         dNkds_vols = np.copy(dNk_vols)
         dNkds_vols[:,ds_vols!=0] = dNk_vols[:,ds_vols != 0] / ds_vols[ds_vols != 0][np.newaxis,:]
-        self.all_neig = all_neig.sum(axis=1)
-        self.faces_contour = self.identify_contour_faces()
-        #dNkds_vols[:,:,all_neig.sum(axis=1)==1] = 0 #*dNkds_vols[:,:,all_neig.sum(axis=1)==1]
-
-        dNkds_vols[:,:,ctes.v0[self.faces_contour].flatten()] = 0 # zero in the contour volumes
+        all_neig = all_neig.sum(axis=1)
+        faces_contour = self.identify_contour_faces(all_neig)
+        #dNkds_vols[:,:,all_neig==1] = 0 #*dNkds_vols[:,:,all_neig.sum(axis=1)==1]
+        dNkds_vols[:,:,ctes.v0[faces_contour].flatten()] = 0 # zero in the contour volumes
         return dNkds_vols
 
     def get_faces_gradient(self, M, fprop, dNkds_vols):
@@ -432,92 +501,10 @@ class MUSCL:
         phi[r_face<0]=0 #so botei pra caso r==-1
         Phi = phi
         Phi[:,:,1] = -Phi[:,:,1]
-        import pdb; pdb.set_trace()
         return Phi
 
     def get_extrapolated_compositions(self, fprop, Phi, dNk_face_neig):
         Nk_face = fprop.Nk[:,ctes.v0] + Phi / 2 * dNk_face_neig
-        z_face = Nk_face[0:ctes.Nc] / np.sum(Nk_face[0:ctes.Nc], axis = 0)
-        return Nk_face, z_face
-
-    def MLP_slope_limiter(self, M, fprop, dNk_face_neig, dNk_face):
-        np.seterr(divide='ignore', invalid='ignore')
-        '------------------------Seccond Order term----------------------------'
-        delta_inf = dNk_face_neig/2
-        delta_inf[:,:,1] = - delta_inf[:,:,1]
-        Phi_MLP = np.ones_like(dNk_face_neig)
-        r = dNk_face[:,:,np.newaxis]/(dNk_face_neig)
-        r[r<0] = 0
-        Phi_MLP[abs(dNk_face_neig)>=1e-10] = r[abs(dNk_face_neig)>=1e-10]
-        Phi_MLP[r > 1] = 1
-        e2 = 0#(5 * (M.data['area'][M.faces.internal])**3)[np.newaxis,:,np.newaxis]
-        #Phi_MLP = 1 / delta_inf * (((delta_sup**2 + e2) * delta_inf + 2 * delta_inf**2 * delta_sup)
-        #    / (delta_sup**2 + 2 * delta_inf**2 + delta_sup * delta_inf + e2))
-        #Phi_MLP[delta_inf==0] = 0
-        #Nk_face = fprop.Nk[:,ctes.v0] + Phi_MLP*delta_inf
-        #Phi_MLP[Nk_face < Nk_aux_min] = 0
-        #Phi_MLP[Nk_face > Nk_aux_max] = 0
-
-        '-------------------------Third Order term-----------------------------'
-        Theta_MLP2 = np.ones_like(Phi_MLP)
-        d2Nk_vols = dNk_face[:,:,np.newaxis] - dNk_face_neig
-        aux_d2Nk = np.copy(d2Nk_vols)
-        d2Nk_vols[:,:,1] = - d2Nk_vols[:,:,1]
-
-        Nk_face = fprop.Nk[:,ctes.v0] + delta_inf #+ 1/8 * aux_d2Nk
-        cond1 = (Nk_face > np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis])
-        cond2 = (Nk_face < np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis])
-        Theta_MLP2[cond1 + cond2] = 0
-
-        Nk_face = fprop.Nk[:,ctes.v0] + delta_inf + 1/8 * aux_d2Nk
-        cond3 = (Nk_face > np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]) * \
-            (dNk_face_neig > 0) * (d2Nk_vols < 0)
-        cond4 = (Nk_face < np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]) * \
-            (dNk_face_neig < 0) * (d2Nk_vols > 0)
-
-        Theta_MLP2_aux = Theta_MLP2[Theta_MLP2==0]
-        Theta_MLP2_aux[(cond3 + cond4)[Theta_MLP2==0]] = 1
-        #cond5 = (np.abs((Nk_face - fprop.Nk[:,ctes.v0])/fprop.Nk[:,ctes.v0]) <= 0.001)
-        #Theta_MLP2_aux[cond5[Theta_MLP2==0]] = 1
-        Theta_MLP2[Theta_MLP2==0] = Theta_MLP2_aux
-
-        #Theta_MLP2[Phi_MLP==0] = 0
-        #Nk_face = fprop.Nk[:,ctes.v0] + delta_inf + 1/8 * aux_d2Nk
-        #Theta_MLP2[Nk_face > np.max(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]] = 0
-        #Theta_MLP2[Nk_face < np.min(fprop.Nk[:,ctes.v0],axis=2)[:,:,np.newaxis]] = 0
-        #import pdb; pdb.set_trace()
-
-        'Creating mapping between volumes and internal faces, to get minimum \
-        value of the limiter projection at the face. It will be a value for \
-        each control volume, and not for each face, as it was beeing done '
-        ctes_FR.vols_vec = -np.ones((ctes.n_volumes,2),dtype=int)
-        lines = np.arange(ctes.n_internal_faces)
-        ctes_FR.vols_vec[ctes.v0[:,0],0] = lines
-        ctes_FR.vols_vec[ctes.v0[:,1],1] = lines
-        contour_vols = np.argwhere(ctes_FR.vols_vec<0)[:,0]
-        ctes_FR.vols_vec[ctes_FR.vols_vec < 0] = ctes_FR.vols_vec[contour_vols,:][ctes_FR.vols_vec[contour_vols]>=0]
-
-        Phi_MLPv = np.empty((ctes.n_components,ctes.n_volumes,2))
-        Phi_MLPv[:,:,0] = Phi_MLP[:,ctes_FR.vols_vec[:,0],0]
-        Phi_MLPv[:,:,1] = Phi_MLP[:,ctes_FR.vols_vec[:,1],1]
-        Phi_MLPv = np.min(Phi_MLPv,axis=2)
-        Phi_MLP = Phi_MLPv[:,ctes.v0]
-
-        Theta_MLP2v = np.empty((ctes.n_components,ctes.n_volumes,2))
-        Theta_MLP2v[:,:,0] = Theta_MLP2[:,ctes_FR.vols_vec[:,0],0]
-        Theta_MLP2v[:,:,1] = Theta_MLP2[:,ctes_FR.vols_vec[:,1],1]
-        Theta_MLP2v = np.min(Theta_MLP2v,axis=2)
-        Theta_MLP2 = Theta_MLP2v[:,ctes.v0]
-        Phi_MLP[:,:,1] = - Phi_MLP[:,:,1]
-        Theta_MLP2[:,:,1] = - Theta_MLP2[:,:,1]
-        return Phi_MLP, Theta_MLP2
-
-    def get_extrapolated_compositions_MLP(self, fprop, Phi_MLP, Theta_MLP2, dNk_face_neig, dNk_face):
-        'Activating limiters at the faces of the contour control volumes '
-        #r_face = dNk_face[:,:,np.newaxis] / dNk_face_neig
-        d2Nk_vols = dNk_face[:,:,np.newaxis] - dNk_face_neig
-        d2Nk_vols[:,:,1] = -d2Nk_vols[:,:,1]
-        Nk_face = fprop.Nk[:,ctes.v0] + Phi_MLP/2 * dNk_face_neig + Theta_MLP2/8 * d2Nk_vols
         z_face = Nk_face[0:ctes.Nc] / np.sum(Nk_face[0:ctes.Nc], axis = 0)
         return Nk_face, z_face
 
@@ -534,26 +521,8 @@ class MUSCL:
         ponteiro_LLF = ponteiro_LLF.sum(axis=0,dtype=bool)
         return ponteiro_LLF'''
 
-    def flux_calculation_conditions(self, alpha):
-        ponteiro_LLF = np.ones((ctes.n_components,ctes.n_internal_faces),dtype=bool)
-        ponteiro_LLF[alpha[:,:,0] * alpha[:,:,1] <= 0] = False
-        difs = np.empty((ctes.n_components, ctes.n_components,ctes.n_internal_faces, 2))
-        ind = np.arange(ctes.n_components).astype(int)
-        for k in range(ctes.n_components):
-            difs[k] = abs(alpha[k,:] - alpha[ind,:])
-            difs[k,k] = 1e5
-        cond = np.min(difs,axis = 1)
-        ponteiro_LLF = ~ponteiro_LLF.sum(axis=0,dtype=bool)
-        ponteiro_LLF2 = np.ones((ctes.n_components,ctes.n_internal_faces),dtype=bool)
-        ponteiro_LLF2[cond[:,:,0]<0.01*np.max(abs(alpha[:,:,0]),axis=0)] = False
-        ponteiro_LLF2[cond[:,:,1]<0.01*np.max(abs(alpha[:,:,1]),axis=0)] = False
-        ponteiro_LLF2 = ponteiro_LLF2.sum(axis=0,dtype=bool)
-        ponteiro_LLF += ~ponteiro_LLF2
-        ponteiro_LLF = ~ponteiro_LLF
-        return ponteiro_LLF
-
-    def identify_contour_faces(self):
-        vols_contour = np.argwhere(self.all_neig==1).flatten()
+    def identify_contour_faces(self, all_neig):
+        vols_contour = np.argwhere(all_neig==1).flatten()
         faces_contour = np.empty_like(vols_contour)
 
         for i in range(len(vols_contour)):
@@ -563,54 +532,17 @@ class MUSCL:
 
     def update_flux(self, M, fprop, Nk_face, ftotal):
         Fk_internal_faces = np.empty((ctes.n_components,ctes.n_internal_faces))
-        alpha_wv = np.empty((ctes.n_internal_faces, 5))
+        alpha_wv = np.empty((ctes.n_internal_faces, 4))
         RS = RiemannSolvers(ctes.v0, ctes.pretransmissibility_internal_faces)
+
         Fk_face = RS.get_Fk_face(fprop, M, Nk_face, self.P_face, ftotal)
-
         ponteiro = np.zeros(ctes.n_internal_faces,dtype=bool)
-
-        #LR_eigval, d2FkdNk_eigval = self.get_LR_eigenvalues_Serna(M, fprop, Nk_face)
-        #LR_eigval = self.get_LR_eigenvalues(M, fprop, Nk_face,  np.ones(ctes.n_internal_faces,dtype=bool))
-        #ponteiro = self.flux_calculation_conditions_Serna(LR_eigval, d2FkdNk_eigval)
-        #ponteiro = self.flux_calculation_conditions(LR_eigval)
-
-        Fk_internal_faces[:,~ponteiro], alpha_wv[~ponteiro,:] = RS.LLF(M, fprop, Nk_face, self.P_face,
-            ftotal, Fk_face, ponteiro)
-
-
-        '''if any(ponteiro):
-            alpha_wv[:,ponteiro,:] = 0
-            #alpha_wv[:,ponteiro,0:2] = LR_eigval[:,ponteiro]
-            Fk_internal_faces[:,ponteiro] = self.update_flux_upwind(fprop,
-                                                Fk_face[:,ponteiro,:], np.copy(ponteiro))'''
+        Fk_internal_faces[:,~ponteiro], alpha_wv[~ponteiro,:] = RS.MDW(M, fprop, Nk_face, self.P_face,
+            ftotal, Fk_face, ~ponteiro)
 
         '-------- Perform volume balance to obtain flux through volumes -------'
         fprop.Fk_vols_total = Flux().update_flux_volumes(Fk_internal_faces)
         return alpha_wv
-
-    '''def get_LR_eigenvalues_Serna(self, M, fprop, Nk_face):
-        dFkdNk = np.empty((ctes.n_internal_faces, ctes.n_components, ctes.n_components))
-        dFkdNk_eigvalue = np.empty((ctes.n_components,ctes.n_internal_faces, 2))
-        d2FkdNk = np.empty_like(dFkdNk)
-        d2FkdNk_eigvalue = np.empty((ctes.n_components,ctes.n_internal_faces, 2))
-        delta = 0.001
-        for i in range(2):
-            for k in range(0,ctes.n_components):
-                Nk_face_plus = np.copy(Nk_face[:,:,i])
-                Nk_face_minus = np.copy(Nk_face[:,:,i])
-                Nk_face_plus[k] += delta*0.5
-                Nk_face_minus[k] -= delta*0.5
-                dFkdNk[:,:,k] = ((self.Fk_from_Nk(fprop, M, Nk_face_plus, np.ones(ctes.n_internal_faces, dtype=bool)) -
-                                    self.Fk_from_Nk(fprop, M, Nk_face_minus, np.ones(ctes.n_internal_faces, dtype=bool)))\
-                                    /(Nk_face_plus[k]-Nk_face_minus[k])).T
-                d2FkdNk[:,:,k] = ((self.dFk_dNk(fprop, M, Nk_face_plus, delta, k, np.ones(ctes.n_internal_faces, dtype=bool)) -
-                                    self.dFk_dNk(fprop, M, Nk_face_minus, delta, k, np.ones(ctes.n_internal_faces, dtype=bool)))\
-                                    /(Nk_face_plus[k]-Nk_face_minus[k])).T
-            eigval1, v = np.linalg.eig(dFkdNk)
-            dFkdNk_eigvalue[:,:,i] = eigval1.T
-            eigval2, v = np.linalg.eig(d2FkdNk)
-            d2FkdNk_eigvalue[:,:,i] = eigval2.T
-        return dFkdNk_eigvalue, d2FkdNk_eigvalue'''
 
     def get_LR_eigenvalues(self, M, fprop, Nk_face, ponteiro):
 
@@ -634,7 +566,6 @@ class MUSCL:
         dFkdNk_eigvalue = eigval1.T
 
         return dFkdNk_eigvalue
-
 
     def update_flux_upwind(self, fprop, Fk_face_upwind_all, ponteiro):
         Fk_face_upwind = np.empty_like(Fk_face_upwind_all[:,:,0])
@@ -757,15 +688,15 @@ class FR:
         Nk_SP_flatt = np.concatenate(np.dsplit(Nk_SP, ctes_FR.n_points),axis=1)[:,:,0]
         Ft_SP_flatt = np.concatenate(np.dsplit(Ft_SP, ctes_FR.n_points),axis=1)[:,:,0]
         pretr = ctes.pretransmissibility_internal_faces[ctes_FR.vols_vec][:,0]
-
-        Fk_SP = RiemannSolvers(v0.astype(int), pretr).Fk_from_Nk(fprop, M, Nk_SP_flatt, P, Ft_SP_flatt, ponteiro)
+        Vp_SP = np.tile(fprop.Vp, ctes_FR.n_points)
+        Fk_SP = RiemannSolvers(v0.astype(int), pretr).Fk_from_Nk(fprop, M, Nk_SP_flatt, P, Vp_SP,
+            Ft_SP_flatt, ponteiro)
         Fk_SP = np.concatenate(np.hsplit(Fk_SP[:,:,np.newaxis], ctes_FR.n_points), axis = 2)
         return Fk_SP
 
     def Riemann_Solver(self, M, fprop, Nk_SP, Fk_SP, P_old, Ft_internal_faces):
 
         Nk_faces = np.empty((ctes.n_components, ctes.n_internal_faces, 2))
-
         Nk_faces[:,:,1] = Nk_SP[:,ctes_FR.v0[:,1],0] #Nk faces a esquerda dos volumes
         Nk_faces[:,:,0] = Nk_SP[:,ctes_FR.v0[:,0],-1] #Nk nas faces a direita
         P_face = np.sum(P_old[ctes_FR.v0],axis=1) * 0.5
@@ -783,7 +714,7 @@ class FR:
         Fk_face_contour_RS, alpha_wv =  RiemannSolvers(np.array([0,ctes.n_volumes-1])[np.newaxis]).LLF(M, fprop, Nk_face_contour, P_face[np.newaxis,0],
             Ft_internal_faces[:,0][:,np.newaxis], Fk_faces_contour, np.zeros(1,dtype=bool))'''
         Fk_face_RS, alpha_wv =  RiemannSolvers(ctes_FR.v0, ctes.pretransmissibility_internal_faces).LLF(M, fprop, Nk_faces, P_face,
-            Ft_internal_faces, Fk_faces, np.zeros(ctes.n_internal_faces,dtype=bool))
+            Ft_internal_faces, Fk_faces, np.ones(ctes.n_internal_faces,dtype=bool))
 
         'Obtaining Flux at each CV side - by finding faces that compounds the CV \
         this only works for 1D problems'

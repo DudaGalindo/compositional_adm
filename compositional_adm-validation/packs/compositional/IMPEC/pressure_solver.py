@@ -6,8 +6,8 @@ import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve
 
 class TPFASolver:
-    def __init__(self, fprop):
-        self.dVt_derivatives(fprop)
+    def __init__(self, dVjdNk, dVjdP):
+        self.dVt_derivatives(dVjdNk, dVjdP)
 
     def get_pressure(self, M, wells, fprop, Pold, delta_t):
         T = self.update_transmissibility(M, wells, fprop, delta_t)
@@ -17,25 +17,11 @@ class TPFASolver:
         self.update_flux_wells(fprop, Pnew, wells, delta_t)
         return Pnew, Ft_internal_faces, self.q
 
-    def dVt_derivatives(self, fprop):
-        self.dVtk = np.empty([ctes.n_components, ctes.n_volumes])
+    def dVt_derivatives(self, dVjdNk, dVjdP):
 
-        if ctes.load_k:
-            self.EOS = ctes.EOS_class(fprop.T)
-            if not ctes.compressible_k:
-                dVtP = np.zeros(ctes.n_volumes)
-                self.dVtk[0:ctes.Nc,:] = 1 / fprop.Csi_j[0,0,:]
-            else: self.dVtk[0:ctes.Nc,:], dVtP = self.EOS.get_all_derivatives(fprop)
+        self.dVtP = dVjdP.sum(axis=1)[0]
+        self.dVtk = dVjdNk.sum(axis=1)
 
-        else: dVtP = np.zeros(ctes.n_volumes)
-
-        if ctes.load_w:
-            self.dVtk[ctes.n_components-1,:] = 1 / fprop.Csi_j[0,ctes.n_phases-1,:]
-            dVwP = - fprop.Nk[ctes.Nc,:] * fprop.Csi_W0 * \
-            ctes.Cw / (fprop.Csi_W)**2
-        else: dVwP = np.zeros(ctes.n_volumes)
-
-        self.dVtP = dVtP + dVwP
 
     def update_transmissibility(self, M, wells, fprop, delta_t):
         self.t0_internal_faces_prod = fprop.xkj_internal_faces * \
@@ -108,7 +94,7 @@ class TPFASolver:
         volume_discrepancy_term = fprop.Vp - fprop.Vt
         if np.max(abs(volume_discrepancy_term)) > 5e-4:
             #import pdb; pdb.set_trace()
-            print('hit')
+            print('hit: ', np.max(abs(volume_discrepancy_term)))
         return volume_discrepancy_term
 
     def well_term(self, fprop, wells):
@@ -158,3 +144,4 @@ class TPFASolver:
             mob_ratio = fprop.mobilities[:,:,wp] / np.sum(fprop.mobilities[:,:,wp], axis = 1)
             self.q[:,wp] = np.sum(fprop.xkj[:,:,wp] * mob_ratio * fprop.Csi_j[:,:,wp] * well_term, axis = 1)
             fprop.q_phase = mob_ratio * well_term
+        
