@@ -93,7 +93,6 @@ class PengRobinson:
                 * (2 * self.psi / self.aalpha[np.newaxis,:] - b_bm) * \
                 np.log((Z[np.newaxis,:] + (1 + 2 ** (1/2)) * B[np.newaxis,:]) /
                 (Z[np.newaxis,:] + (1 - 2 ** (1/2)) * B[np.newaxis,:]))
-
         return lnphi
 
 

@@ -19,7 +19,7 @@ class delta_time:
         if ctes.FR:
             from packs.compositional import prep_FR as ctes_FR
             CFL = CFL*(2*(ctes_FR.n_points-1)+1)
-        #import pdb; pdb.set_trace()
+        
         #CFL_wells = delta_t * 1 / np.nanmin((fprop.Nk[wells['ws_inj']] /
         #           abs(fprop.component_flux_vols_total[wells['ws_inj']])))
         if (CFL > CFL_p): delta_t = delta_t / 2
@@ -95,7 +95,7 @@ class delta_time:
         Else, it follows the compositional regular criteria'
         if ctes.Cw == 0 and not load_k: delta_t = delta_tcfl
         else: delta_t = min(delta_tp, delta_ts, delta_tn, delta_tv, delta_tcfl)
-
+        delta_t = delta_tcfl
         if delta_t > delta_tmax: delta_t = delta_tmax
         if delta_t < delta_tmin: delta_t = delta_tmin
         #import pdb; pdb.set_trace()

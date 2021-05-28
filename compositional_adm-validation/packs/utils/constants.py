@@ -38,7 +38,7 @@ def init(M, wells):
     vols_index = M.volumes.all
     vols_no_wells = np.setdiff1d(vols_index,wells['all_wells'])
     pretransmissibility_faces = M.data[M.data.variables_impress['pretransmissibility']]
-    pretransmissibility_internal_faces = pretransmissibility_faces[ M.faces.internal]#[100]*np.ones(len(self.internal_faces))
+    pretransmissibility_internal_faces = pretransmissibility_faces[M.faces.internal]#[100]*np.ones(len(self.internal_faces))
     if len(wells['ws_p'])>1:
         bhp_ind = np.argwhere(M.volumes.center[wells['ws_p']][:,2] ==
         min(M.volumes.center[wells['ws_p']][:,2])).ravel()
@@ -61,7 +61,7 @@ def component_properties():
     global Mw_w
     global Cw
     global Pw
-    
+
     load_k = data_loaded['hidrocarbon_components']
     load_w = data_loaded['water_component']
     compressible_k = data_loaded['compressible_fluid']
@@ -76,7 +76,7 @@ def component_properties():
         Mw = np.array(data_loaded['compositional_data']['component_data']['Mw']).astype(float)
         s = np.array(data_loaded['compositional_data']['component_data']['vshift_parameter']).astype(float)
         Nc = len(Mw)
-        Pb_guess = np.array(data_loaded['compositional_data']['component_data']['Pb_guess']).astype(float)
+        #Pb_guess = np.array(data_loaded['compositional_data']['component_data']['Pb_guess']).astype(float)
 
     else: Nc = 0; z = []
     if load_w:
