@@ -1,15 +1,20 @@
 from packs.directories import data_loaded
 from packs import directories as direc
 from packs.running.compositional_initial_mesh_properties import initial_mesh
-from packs.compositional.IMPEC.compositionalIMPEC import CompositionalFVM
 from packs.compositional.stability_check import StabilityCheck
-from packs.compositional.properties_calculation import PropertiesCalc
 from packs.compositional.update_time import delta_time
 from get_inputs_compositional import FluidProperties
 from packs.utils import constants as ctes
 import os
 import numpy as np
 import time
+
+if data_loaded['compositional_data']['solver']['IMPSAT']:
+    from packs.compositional.IMPSAT.compositionalIMPSAT import CompositionalFVM
+    from packs.compositional.IMPSAT.properties_calculation import PropertiesCalc
+else:
+    from packs.compositional.IMPEC.compositionalIMPEC import CompositionalFVM
+    from packs.compositional.IMPEC.properties_calculation import PropertiesCalc
 
 class run_simulation:
     '''Class created to compute simulation properties at each simulation time'''
@@ -88,8 +93,8 @@ class run_simulation:
         self.t += self.delta_t
         #if self.t>8466000: import pdb; pdb.set_trace()
         '----------------- Perform Phase stability test and flash -------------'
-        
-        if ctes.load_k :
+
+        if ctes.load_k and ctes.compressible_k:
             #self.p2 = StabilityCheck(fprop.P, fprop.T)
             fprop.L, fprop.V, fprop.xkj[0:ctes.Nc, 0, :], \
             fprop.xkj[0:ctes.Nc, 1, :], fprop.Csi_j[:,0,:], \
@@ -108,11 +113,11 @@ class run_simulation:
 
         self.p1.run_inside_loop(M, fprop)
 
-        #if fprop.Sg[0]>0: import pdb; pdb.set_trace()
+
         '-------------------- Advance in time and save results ----------------'
 
         self.update_vpi(fprop, wells)
-        if self.vpi>0.2: import pdb; pdb.set_trace()
+        #if self.vpi>0.2: import pdb; pdb.set_trace()
         self.delta_t = t_obj.update_delta_t(self.delta_t, fprop, ctes.load_k, self.loop)#get delta_t with properties in t=n and t=n+1
         if len(wells['ws_p'])>0: self.update_production(fprop, wells)
 
