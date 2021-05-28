@@ -2,7 +2,7 @@ import numpy as np
 from packs.directories import data_loaded
 from packs.utils import constants as ctes
 from ..stability_check import StabilityCheck
-from ..properties_calculation import PropertiesCalc
+from .properties_calculation import PropertiesCalc
 from .composition_solver import RK3, Euler
 import scipy.sparse as sp
 from packs.compositional import prep_FR as ctes_FR
@@ -31,7 +31,8 @@ class Flux:
             fprop.xkj_internal_faces, fprop.Csi_j_internal_faces, Fj_internal_faces)
         Fk_vols_total = self.update_flux_volumes(Fk_internal_faces)
 
-        wave_velocity = self.wave_velocity_upw(M, fprop, P_old, Fk_internal_faces, Ft_internal_faces)
+        wave_velocity = self.wave_velocity_upw(M, fprop, P_old, Fk_vols_total, Fk_internal_faces,
+            Ft_internal_faces)
         return Fk_vols_total, wave_velocity
 
     def update_Fj_internal_faces(self, Ft_internal_faces, rho_j_internal_faces,
@@ -81,7 +82,7 @@ class Flux:
 
         return Fk_vols_total
 
-    def wave_velocity_upw(self, M, fprop, P_old, Fk_internal_faces, Ft_internal_faces):
+    def wave_velocity_upw(self, M, fprop, P_old, Fk_vols_total, Fk_internal_faces, Ft_internal_faces):
         grad = Fk_internal_faces>0 #Pot_hidr(i+1) - Pot_hidr(i)
 
         Nk_face = fprop.Nk[:,ctes.v0]
@@ -92,13 +93,20 @@ class Flux:
         Vp = fprop.Vp[ctes.v0[:,0]] * (1 - grad.sum(axis=0,dtype=bool))  + fprop.Vp[ctes.v0[:,0]] * grad.sum(axis=0,dtype=bool)
 
         ponteiro = np.ones(ctes.n_internal_faces, dtype=bool)
-        ponteiro[~np.sum((Nk_face[:,:,0]!=Nk_face[:,:,1]),axis=0,dtype=bool)] = False
+        ponteiro[~np.sum(abs(Nk_face[:,:,0]-Nk_face[:,:,1])>1e-5,axis=0,dtype=bool)] = False
         #alpha = np.zeros((ctes.n_components,ctes.n_internal_faces))
-        alpha = fprop.Fk_vols_total/fprop.Nk
-        #RS = RiemannSolvers(ctes.v0, ctes.pretransmissibility_internal_faces)
+        #alpha = Fk_vols_total/fprop.Nk
+
+
+        alpha = (Fk_internal_faces) / (Nk)
+
+        RS = RiemannSolvers(ctes.v0, ctes.pretransmissibility_internal_faces)
         #ponteiro[0] = False
         #alpha = fprop.Fk_vols_total
-        #alpha[:,ponteiro] = RS.medium_wave_velocity(M, fprop, Nk[:,ponteiro], P, Vp[ponteiro], Ft_internal_faces, ponteiro)
+
+        alpha[:,~ponteiro] = RS.medium_wave_velocity(M, fprop, Nk[:,~ponteiro], P, Vp[~ponteiro],
+            Ft_internal_faces, ~ponteiro)
+
         #ponteiro[arg_vols] = True
         #alpha2 = RiemannSolvers(ctes.v0, ctes.pretransmissibility_internal_faces).\
         #         LR_wave_velocity(M, fprop, Nk_face, P_face, Ft_internal_faces, ponteiro)
@@ -172,9 +180,12 @@ class RiemannSolvers:
         else:
             L_face = np.ones(len(P_face)); V_face = np.zeros(len(P_face))
             xkj_face[0:ctes.Nc,0:2,:] = 1
-            rho_j_face[0,0:2,:] = np.tile(fprop.rho_j[0,0:2,self.v0[ponteiro,0]], v) #constante, independe da pressao
+
+            rho_j_face[0,0,:] = np.tile(fprop.rho_j[0,0,self.v0[ponteiro,0]], v)
+            rho_j_face[0,1,:] = np.tile(fprop.rho_j[0,1,self.v0[ponteiro,0]], v) #constante, independe da pressao
             #self.reshape_constant_property(fprop.rho_j[0,0:2,:], ponteiro, v)
-            Csi_j_face[0,0:2,:] = np.tile(fprop.Csi_j[0,0:2,self.v0[ponteiro,0]], v)
+            Csi_j_face[0,0,:] = np.tile(fprop.Csi_j[0,0,self.v0[ponteiro,0]], v)
+            Csi_j_face[0,1,:] = np.tile(fprop.Csi_j[0,1,self.v0[ponteiro,0]], v)
             #self.reshape_constant_property(fprop.Csi_j[0,0:2,:], ponteiro, v)
 
 

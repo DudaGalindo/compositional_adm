@@ -21,7 +21,7 @@ class TPFASolver:
 
         self.dVtP = dVjdP.sum(axis=1)[0]
         self.dVtk = dVjdNk.sum(axis=1)
-
+        
 
     def update_transmissibility(self, M, wells, fprop, delta_t):
         self.t0_internal_faces_prod = fprop.xkj_internal_faces * \
@@ -144,4 +144,3 @@ class TPFASolver:
             mob_ratio = fprop.mobilities[:,:,wp] / np.sum(fprop.mobilities[:,:,wp], axis = 1)
             self.q[:,wp] = np.sum(fprop.xkj[:,:,wp] * mob_ratio * fprop.Csi_j[:,:,wp] * well_term, axis = 1)
             fprop.q_phase = mob_ratio * well_term
-        

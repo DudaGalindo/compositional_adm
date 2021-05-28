@@ -24,7 +24,7 @@ class CompositionalFVM:
         P_old = np.copy(fprop.P)
         Nk_old = np.copy(fprop.Nk)
         if ctes.FR: Nk_SP_old = np.copy(fprop.Nk_SP)
-
+        import pdb; pdb.set_trace()
         while (r!=1.):
 
             fprop.Nk = np.copy(Nk_old)
@@ -48,10 +48,11 @@ class CompositionalFVM:
             ''' For the composition calculation the time step might be different\
              because it treats composition explicitly and this explicit models \
              are conditionally stable - which can be based on the CFL parameter '''
-
+            #wave_velocity[:,wells['all_wells']] = 0
             delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
             r = delta_t_new/delta_t
             delta_t = delta_t_new
+
 
         dd = q
         if any(fprop.P<0): import pdb; pdb.set_trace()
@@ -84,9 +85,9 @@ class CompositionalFVM:
             self.EOS = ctes.EOS_class(fprop.T)
             if not ctes.compressible_k:
                 dVjdNk[0:ctes.Nc,0,:] = 1 / fprop.Csi_j[0,0,:]
-                dVjdNk[0:ctes.Nc,1,:] =  np.zeros_like(dVldNk)#1 / fprop.Csi_j[0,1,:]
+                dVjdNk[0:ctes.Nc,1,:] =  np.zeros_like(dVjdNk[0:ctes.Nc,0])#1 / fprop.Csi_j[0,1,:]
                 dVjdP[0,0,:] = np.zeros(ctes.n_volumes)
-                dVjdP[0,1,:] = np.zeros_like(dVldP)
+                dVjdP[0,1,:] = np.zeros_like(dVjdP[0,0,:])
             else:
                 dVjdP[0,0,:], dVjdP[0,1,:], dVjdNk[0:ctes.Nc,0,:], dVjdNk[0:ctes.Nc,1,:] = self.EOS.get_all_derivatives(fprop)
                 #dVtP = dVjdP.sum(axis=0)
@@ -97,7 +98,8 @@ class CompositionalFVM:
 
         if ctes.load_w:
             dVjdNk[ctes.n_components-1,2,:] = 1 / fprop.Csi_j[0,ctes.n_phases-1,:]
-            dVjdP[0,2,:] = - fprop.Nk[ctes.Nc,:] * fprop.Csi_W0 * ctes.Cw / (fprop.Csi_W)**2
+            dVjdP[0,2,:] = - fprop.Nk[ctes.n_components-1,:] * fprop.Csi_W0 * ctes.Cw / (fprop.Csi_W)**2
+
         #else: dVjdP[2,:] = np.zeros(ctes.n_volumes)
         return dVjdNk, dVjdP
 
