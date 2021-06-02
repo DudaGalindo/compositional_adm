@@ -69,7 +69,7 @@ class StabilityCheck:
 
     def check_phase_nc_1(self):
         Pv = self.vapor_pressure_pure_substancies()
-        Pv = Pv*np.ones_like(self.z)
+        Pv = Pv * np.ones_like(self.z)
         self.x = self.z
         self.y = self.z
 

@@ -8,8 +8,6 @@ compressible_fluid: False
 water_component: True
 use_vpi: True
 
-
-
 load_compositional_data: False
 load_data: False
 convert_english_to_SI: False
@@ -27,7 +25,7 @@ monophasic_data:
 # Case 3 of Li M.Sc. Thesis with case studies
 compositional_data:
   #  Pensar em um jeito de reorganizar isso
-  CFL: 0.7
+  CFL: 7
 
   solver:
     IMPSAT: true
@@ -55,8 +53,8 @@ compositional_data:
 
   time_data:
     deltaPlim: 7
-    deltaNlim: 0.15
-    deltaSlim: 0.4
+    deltaNlim: 100
+    deltaSlim: 0.7
     deltaVlim: 1
     delta_t_ini: 0.5
     delta_tmax: 1000

@@ -24,21 +24,25 @@ class CompositionalFVM:
         Nk_old = np.copy(fprop.Nk)
 
         while (r!=1.):
-            fprop.Nk = np.copy(Nk_old)
+            #fprop.Nk = np.copy(Nk_old)
             fprop.P, total_flux_internal_faces, q = psolve.get_pressure(M, wells, fprop, P_old, delta_t)
 
             UPW = Flux()
-            fprop.Fk_vols_total, wave_velocity = UPW.update_flux(M, fprop, P_old, total_flux_internal_faces,
+            fprop.Fk_vols_total = UPW.update_flux(M, fprop, P_old, total_flux_internal_faces,
                                          fprop.rho_j_internal_faces,
                                          fprop.mobilities_internal_faces)
+            wave_velocity = UPW.wave_velocity_upw(M, fprop, fprop.mobilities, fprop.rho_j, fprop.xkj,
+                fprop.Csi_j, total_flux_internal_faces)
 
             delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
             r = delta_t_new/delta_t
             delta_t = delta_t_new
+            #r=1
 
         fprop.So, fprop.Sg, fprop.Sw, fprop.Fk_vols_total, wave_velocity, q, fprop.mobilities = Sat(M).implicit_solver(M, fprop,
             wells, Pot_hid, total_flux_internal_faces, dVjdNk, dVjdP, fprop.P, P_old, q, delta_t)
 
+        #import pdb; pdb.set_trace()
         fprop.Nk, fprop.z = Euler().update_composition(fprop.Nk, q, fprop.Fk_vols_total, delta_t)
 
         fprop.wave_velocity = wave_velocity
@@ -46,8 +50,7 @@ class CompositionalFVM:
         if any(fprop.xkj.sum(axis=0).flatten()>1+1e-10): import pdb; pdb.set_trace()
         if len(fprop.Nk[fprop.Nk<0]>1): import pdb; pdb.set_trace()
         #if fprop.P[0]<fprop.P[1] or fprop.P[1]<fprop.P[2]: import pdb; pdb.set_trace()
-        import pdb; pdb.set_trace()
-
+        #import pdb; pdb.set_trace()
         return delta_t
 
     def update_gravity_term(self, fprop):
@@ -77,8 +80,8 @@ class CompositionalFVM:
             #dVjdNk[:,1,:] =  np.zeros_like(dVldNk)
 
         if ctes.load_w:
-            dVjdNk[ctes.n_components-1,2,:] = 1 / fprop.Csi_j[0,ctes.n_phases-1,:]
-            dVjdP[0,2,:] = - fprop.Nk[ctes.Nc,:] * fprop.Csi_W0 * ctes.Cw / (fprop.Csi_W)**2
+            dVjdNk[ctes.n_components-1,-1,:] = 1 / fprop.Csi_j[0,ctes.n_phases-1,:]
+            dVjdP[0,-1,:] = - fprop.Nk[ctes.Nc,:] * fprop.Csi_W0 * ctes.Cw / (fprop.Csi_W)**2
         #else: dVjdP[2,:] = np.zeros(ctes.n_volumes)
         return dVjdNk, dVjdP
 

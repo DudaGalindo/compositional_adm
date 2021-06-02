@@ -31,9 +31,7 @@ class Flux:
             fprop.xkj_internal_faces, fprop.Csi_j_internal_faces, Fj_internal_faces)
         Fk_vols_total = self.update_flux_volumes(Fk_internal_faces)
 
-        wave_velocity = self.wave_velocity_upw(M, fprop, P_old, Fk_vols_total, Fk_internal_faces,
-            Ft_internal_faces)
-        return Fk_vols_total, wave_velocity
+        return Fk_vols_total
 
     def update_Fj_internal_faces(self, Ft_internal_faces, rho_j_internal_faces,
         mobilities_internal_faces, Pcap_face, z_face,
@@ -82,31 +80,33 @@ class Flux:
 
         return Fk_vols_total
 
-    def wave_velocity_upw(self, M, fprop, P_old, Fk_vols_total, Fk_internal_faces, Ft_internal_faces):
-        grad = Fk_internal_faces>0 #Pot_hidr(i+1) - Pot_hidr(i)
+    def wave_velocity_upw(self, M, fprop, mobilities, rho_j, xkj, Csi_j, Ft_internal_faces):
+        #grad = Fk_internal_faces>0 #Pot_hidr(i+1) - Pot_hidr(i)
 
         Nk_face = fprop.Nk[:,ctes.v0]
-
-        Nk = Nk_face[:,:,0] * (1 - grad) + Nk_face[:,:,1] * grad
-        P = P_old[ctes.v0[:,0]] * (1 - grad.sum(axis=0,dtype=bool)) + P_old[ctes.v0[:,1]] * grad.sum(axis=0, dtype=bool)
-        if any(P<0): import pdb; pdb.set_trace()
-        Vp = fprop.Vp[ctes.v0[:,0]] * (1 - grad.sum(axis=0,dtype=bool))  + fprop.Vp[ctes.v0[:,0]] * grad.sum(axis=0,dtype=bool)
-
-        ponteiro = np.ones(ctes.n_internal_faces, dtype=bool)
-        ponteiro[~np.sum(abs(Nk_face[:,:,0]-Nk_face[:,:,1])>1e-5,axis=0,dtype=bool)] = False
-        #alpha = np.zeros((ctes.n_components,ctes.n_internal_faces))
-        #alpha = Fk_vols_total/fprop.Nk
-
-
-        alpha = (Fk_internal_faces) / (Nk)
 
         RS = RiemannSolvers(ctes.v0, ctes.pretransmissibility_internal_faces)
         #ponteiro[0] = False
         #alpha = fprop.Fk_vols_total
+        Fj_internal_faces_L = self.update_Fj_internal_faces(Ft_internal_faces,
+            rho_j[:,:,ctes.v0[:,0]], mobilities[:,:,ctes.v0[:,0]], fprop.Pcap[:,ctes.v0],
+            ctes.z[ctes.v0], ctes.pretransmissibility_internal_faces)
+        Fj_internal_faces_R = self.update_Fj_internal_faces(Ft_internal_faces,
+            rho_j[:,:,ctes.v0[:,1]], mobilities[:,:,ctes.v0[:,1]], fprop.Pcap[:,ctes.v0],
+            ctes.z[ctes.v0], ctes.pretransmissibility_internal_faces)
+        Fk_internal_faces_L = self.update_Fk_internal_faces(
+            xkj[:,:,ctes.v0[:,0]], Csi_j[:,:,ctes.v0[:,0]], Fj_internal_faces_L)
+        Fk_internal_faces_R = self.update_Fk_internal_faces(
+            xkj[:,:,ctes.v0[:,1]], Csi_j[:,:,ctes.v0[:,1]], Fj_internal_faces_R)
 
-        alpha[:,~ponteiro] = RS.medium_wave_velocity(M, fprop, Nk[:,~ponteiro], P, Vp[~ponteiro],
-            Ft_internal_faces, ~ponteiro)
-
+        Nk = (fprop.Nk[:,ctes.v0[:,0]] + fprop.Nk[:,ctes.v0[:,1]])/2
+        Vp = fprop.Vp[ctes.v0].sum(axis=-1)/2
+        P_face = fprop.P[ctes.v0].sum(axis=-1)/2
+        alpha = (Fk_internal_faces_R - Fk_internal_faces_L)/(fprop.Nk[:,ctes.v0[:,1]] - fprop.Nk[:,ctes.v0[:,0]])
+        ponteiro = np.zeros_like(alpha[0],dtype=bool)
+        ponteiro[np.sum((fprop.Nk[:,ctes.v0[:,1]] - fprop.Nk[:,ctes.v0[:,0]])==0,axis=0,dtype=bool)] = True
+        alpha[:,ponteiro] = RS.medium_wave_velocity(M, fprop, Nk[:,ponteiro], P_face, Vp[ponteiro], Ft_internal_faces, ponteiro)
+        #alpha[:,ponteiro] = 0
         #ponteiro[arg_vols] = True
         #alpha2 = RiemannSolvers(ctes.v0, ctes.pretransmissibility_internal_faces).\
         #         LR_wave_velocity(M, fprop, Nk_face, P_face, Ft_internal_faces, ponteiro)
@@ -223,7 +223,6 @@ class RiemannSolvers:
 
     def Fk_from_Nk(self, fprop, M, Nk, P_face, Vp_face, ftotal, ponteiro):
         ''' Function to compute component flux based on a given composition (Nk) '''
-
         v = int(len(Nk[0,:])/len(ponteiro[ponteiro]))
         z = Nk[0:ctes.Nc] / np.sum(Nk[0:ctes.Nc], axis = 0)
 

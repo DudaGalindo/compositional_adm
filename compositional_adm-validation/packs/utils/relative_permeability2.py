@@ -26,7 +26,7 @@ class BrooksAndCorey:
         Sorw = np.ones_like(saturations[2]) * self.Sorw
         Swr = np.ones(saturations[2].shape) * self.Swr
 
-        Swr[saturations[2] < Swr] = saturations[2][saturations[2] < Swr]
+        Sorw[saturations[0] < self.Sorw] = saturations[0][saturations[0] < self.Sorw]
         Sorw[saturations[0] < self.Sorw] = saturations[0][saturations[0] < self.Sorw]
         Sorg[saturations[0] < self.Sorg] = saturations[0][saturations[0] < self.Sorg]
         Swr[saturations[2] < Swr] = saturations[2][saturations[2] < Swr]
@@ -68,7 +68,8 @@ class BrooksAndCorey:
         Sorw = np.ones_like(saturations[2]) * self.Sorw
         Swr = np.ones(saturations[2].shape) * self.Swr
 
-        Swr[saturations[2] < Swr] = saturations[2][saturations[2] < Swr]
+
+        Sorw[saturations[0] < self.Sorw] = saturations[0][saturations[0] < self.Sorw]
         Sorw[saturations[0] < self.Sorw] = saturations[0][saturations[0] < self.Sorw]
         Sorg[saturations[0] < self.Sorg] = saturations[0][saturations[0] < self.Sorg]
         Swr[saturations[2] < Swr] = saturations[2][saturations[2] < Swr]

@@ -1,13 +1,12 @@
 #Compressive Oil case with 1 component in 1-D reservoir
 mesh_name: 500x1x1_6k.msh
-name_save_file: 'results_water_inj_6k_modified_case_FR'
+name_save_file: 'results_water_inj_6k_modified_case_IMPSAT'
 
 compositional: True
 hidrocarbon_components: True
 compressible_fluid: True
 water_component: True
 use_vpi: False
-
 
 load_compositional_data: False
 load_data: False
@@ -28,12 +27,18 @@ monophasic_data:
 compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 0.5
+
+  solver:
+    IMPSAT: false
+
   MUSCL:
     set: False
+
   FR:
-    set: True
+    set: false
     order: 3
-  vpis_para_gravar_vtk: [0.1, 0.3, 0.5]
+
+  vpis_para_gravar_vtk: [0, 0.1, 0.3, 0.5]
   time_to_save: [8640000]
   maximum_time: 8640000
   phase_viscosity: LorenzBrayClark
@@ -93,7 +98,6 @@ compositional_data:
     Bin: [[0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.], [0.,0.,.0,0.,0.,0.]]
     Pv: [8e6, 0., 0., 0., 0., 0.]
     vshift_parameter: [0.0, 0.0, 0.0, 0., 0., 0.]
-    Pb_guess: 12e6
 
 #water saturation data
 Saturation:
@@ -111,7 +115,6 @@ Permeability:
   r1:
     type: all
     value: [1e-14, 0, 0, 0, 1e-14, 0, 0, 0, 1e-14]
-
 
 Pressure:
   r1:
@@ -134,11 +137,12 @@ Wells:
     z: [0., 0., 0., 0., 0., 0., 1.]
     ksi_total: 55549.8
     value_type: volumetric
+    injection_condition: surface
 
   P2:
     p0: [2725.7376, 0.0, -10]
     p1: [2731.2, 10.66875, 0.0]
+    type_region: box
     prescription: P
     type: Producer
-    type_region: box
     value: 8.960e6

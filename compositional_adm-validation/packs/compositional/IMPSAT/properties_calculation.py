@@ -87,8 +87,7 @@ class PropertiesCalc:
 
         Nkj = fprop.xkj * fprop.Nj
         fprop.Nk = np.sum(Nkj, axis = 1)
-
-
+        
     def set_Nk_Pspace(self, fprop):
         from packs.compositional import prep_FR as ctes_FR
         'Function to get Nk at the solution points at t=0 for the FR approach. \

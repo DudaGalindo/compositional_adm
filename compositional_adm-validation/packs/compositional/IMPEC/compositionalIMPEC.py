@@ -24,7 +24,6 @@ class CompositionalFVM:
         P_old = np.copy(fprop.P)
         Nk_old = np.copy(fprop.Nk)
         if ctes.FR: Nk_SP_old = np.copy(fprop.Nk_SP)
-        import pdb; pdb.set_trace()
         while (r!=1.):
 
             fprop.Nk = np.copy(Nk_old)
@@ -39,11 +38,11 @@ class CompositionalFVM:
                     total_flux_internal_faces, Nk_SP_old, P_old, q, delta_t, t)
             else:
                 UPW = Flux()
-                fprop.Fk_vols_total, wave_velocity = UPW.update_flux(M, fprop, P_old, total_flux_internal_faces,
+                fprop.Fk_vols_total = UPW.update_flux(M, fprop, P_old, total_flux_internal_faces,
                                      fprop.rho_j_internal_faces,
                                      fprop.mobilities_internal_faces)
-
-
+                wave_velocity = UPW.wave_velocity_upw(M, fprop, fprop.mobilities, fprop.rho_j, fprop.xkj,
+                    fprop.Csi_j, total_flux_internal_faces)
 
             ''' For the composition calculation the time step might be different\
              because it treats composition explicitly and this explicit models \
@@ -52,14 +51,19 @@ class CompositionalFVM:
             delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
             r = delta_t_new/delta_t
             delta_t = delta_t_new
-
+            r=1
+        #import pdb; pdb.set_trace()
 
         dd = q
+
         if any(fprop.P<0): import pdb; pdb.set_trace()
         #import pdb; pdb.set_trace()
         if not ctes.FR:
+
             fprop.Nk, fprop.z = Euler().update_composition(fprop.Nk, q,
                 fprop.Fk_vols_total, delta_t)
+            #wave_velocity = UPW.wave_velocity_upw(M, fprop, fprop.mobilities, fprop.rho_j, fprop.xkj,
+            #    fprop.Csi_j, total_flux_internal_faces)
 
         else:
             fprop.Nk = Nk; fprop.z = z; fprop.Nk_SP = Nk_SP
@@ -67,8 +71,9 @@ class CompositionalFVM:
         fprop.wave_velocity = wave_velocity
         fprop.total_flux_internal_faces = total_flux_internal_faces
         if any(fprop.xkj.sum(axis=0).flatten()>1+1e-10): import pdb; pdb.set_trace()
-        if len(fprop.Nk[fprop.Nk<0]>1): import pdb; pdb.set_trace()
+        if len(fprop.Nk[fprop.Nk<0])>0: import pdb; pdb.set_trace()
         #if fprop.P[0]<fprop.P[1] or fprop.P[1]<fprop.P[2]: import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         return delta_t
 
     def update_gravity_term(self, fprop):
