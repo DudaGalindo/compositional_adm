@@ -67,10 +67,11 @@ class run_simulation:
                 p_well = StabilityCheck(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']], fprop.T)
                 L, V, x, y, Csi_L, Csi_V, rho_L, rho_V  =  \
                 p_well.run_init(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']],z[:ctes.Nc])
-                fprop.q_vol = wells['values_q'][:,wells['inj_cond']=='reservoir']
-                wells['values_q'][:,wells['inj_cond']=='reservoir'] *= (z * Csi_V).sum(axis=0)
+                self.q_vol = np.copy(wells['values_q'][:,wells['inj_cond']=='reservoir'])
+                wells['values_q'][:,wells['inj_cond']=='reservoir'] = (Csi_V * V + Csi_L * L) * self.q_vol
 
         else: fprop.x = []; fprop.y = []; fprop.L = []; fprop.V = []
+
         if ctes.load_w: fprop.inputs_water_properties(M) #load water properties
 
         '----------------------- Calculate fluid properties -------------------'
@@ -91,7 +92,6 @@ class run_simulation:
         self.delta_t = CompositionalFVM()(M, wells, fprop, self.delta_t, self.t)
 
         self.t += self.delta_t
-        #if self.t>8466000: import pdb; pdb.set_trace()
         '----------------- Perform Phase stability test and flash -------------'
 
         if ctes.load_k and ctes.compressible_k:
@@ -99,15 +99,14 @@ class run_simulation:
             fprop.L, fprop.V, fprop.xkj[0:ctes.Nc, 0, :], \
             fprop.xkj[0:ctes.Nc, 1, :], fprop.Csi_j[:,0,:], \
             fprop.Csi_j[:,1,:], fprop.rho_j[:,0,:], fprop.rho_j[:,1,:]  =  \
-            self.p2.run(wells, fprop.P, np.copy(fprop.z))
+            self.p2.run(fprop.P, np.copy(fprop.z))
 
-            '''if any(([wells['inj_cond']=='reservoir'])):
+            if any(([wells['inj_cond']=='reservoir'])):
                 z = (wells['z'][wells['inj_cond']=='reservoir']).T
                 p_well = StabilityCheck(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']], fprop.T)
-
                 L, V, x, y, Csi_L, Csi_V, rho_L, rho_V  =  \
                 p_well.run_init(fprop.P[wells['ws_q'][wells['inj_cond']=='reservoir']],z[:ctes.Nc])
-                wells['values_q'][:,wells['inj_cond']=='reservoir'] = fprop.q_vol*(z * Csi_V).sum(axis=0)'''
+                wells['values_q'][:,wells['inj_cond']=='reservoir'] = (Csi_V * V + Csi_L * L) * self.q_vol
 
         '----------------------- Update fluid properties ----------------------'
 
