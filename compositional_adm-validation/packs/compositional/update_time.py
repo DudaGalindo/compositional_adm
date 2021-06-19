@@ -33,7 +33,7 @@ class delta_time:
          CFL = data_loaded['compositional_data']['CFL']
          old_settings = np.seterr(all = 'ignore', divide = 'ignore')
          delta_tcfl = CFL / np.max(abs(fprop.wave_velocity)) #make nan
-        
+
          if np.max(abs(fprop.wave_velocity))==0:
              delta_tcfl = delta_t
 
@@ -97,9 +97,9 @@ class delta_time:
         'If only water present, the time-step calculation follows the CFL criteria\
         Else, it follows the compositional regular criteria'
         if ctes.Cw == 0 and not load_k: delta_t = delta_tcfl
-        else: delta_t = min(delta_tp, delta_ts, delta_tn, delta_tv, delta_tcfl)
+        else: delta_t = min(delta_tp, delta_ts, delta_tn, delta_tv)
 
-        if delta_t > delta_tmax: delta_t = delta_tmax
+        if delta_t > min(delta_tmax, delta_tcfl): delta_t = min(delta_tmax, delta_tcfl)
         if delta_t < delta_tmin: delta_t = delta_tmin
         #import pdb; pdb.set_trace()
         #delta_t = delta_tcfl

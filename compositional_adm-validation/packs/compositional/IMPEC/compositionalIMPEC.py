@@ -11,7 +11,7 @@ class CompositionalFVM:
 
     def __call__(self, M, wells, fprop, delta_t, t):
         G = self.update_gravity_term(fprop)
-
+        Pot_hid = fprop.P + fprop.Pcap - G[0,:,:]
         if ctes.MUSCL or ctes.FR: self.get_faces_properties_average(fprop)
         else: self.get_faces_properties_upwind(fprop, G)
         self.get_phase_densities_internal_faces(fprop)
@@ -23,56 +23,51 @@ class CompositionalFVM:
 
         P_old = np.copy(fprop.P)
         Nk_old = np.copy(fprop.Nk)
+
         if ctes.FR: Nk_SP_old = np.copy(fprop.Nk_SP)
         while (r!=1.):
 
             fprop.Nk = np.copy(Nk_old)
+
             fprop.P, total_flux_internal_faces, q = psolve.get_pressure(M, wells, fprop, P_old, delta_t)
 
             if ctes.MUSCL:
-                #order = data_loaded['compositional_data']['MUSCL']['order']
-                wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces)
+                wave_velocity = MUSCL().run(M, fprop, wells, P_old, total_flux_internal_faces, Pot_hid)
+
 
             elif ctes.FR:
                 wave_velocity, Nk, z, Nk_SP = FR().run(M, fprop, wells,
                     total_flux_internal_faces, Nk_SP_old, P_old, q, delta_t, t)
             else:
+
                 UPW = Flux()
-                fprop.Fk_vols_total = UPW.update_flux(M, fprop, P_old, total_flux_internal_faces,
-                                     fprop.rho_j_internal_faces,
-                                     fprop.mobilities_internal_faces)
+                fprop.Fk_vols_total = UPW.update_flux(M, fprop, total_flux_internal_faces,
+                                     fprop.rho_j_internal_faces, fprop.mobilities_internal_faces)
                 wave_velocity = UPW.wave_velocity_upw(M, fprop, fprop.mobilities, fprop.rho_j, fprop.xkj,
                     fprop.Csi_j, total_flux_internal_faces)
 
             ''' For the composition calculation the time step might be different\
              because it treats composition explicitly and this explicit models \
              are conditionally stable - which can be based on the CFL parameter '''
-            #wave_velocity[:,wells['all_wells']] = 0
+
             delta_t_new = delta_time.update_CFL(delta_t, fprop.Fk_vols_total, fprop.Nk, wave_velocity)
             r = delta_t_new/delta_t
             delta_t = delta_t_new
-            r=1
-        #import pdb; pdb.set_trace()
 
         dd = q
 
         if any(fprop.P<0): import pdb; pdb.set_trace()
-        #import pdb; pdb.set_trace()
         if not ctes.FR:
-
             fprop.Nk, fprop.z = Euler().update_composition(fprop.Nk, q,
                 fprop.Fk_vols_total, delta_t)
-            #wave_velocity = UPW.wave_velocity_upw(M, fprop, fprop.mobilities, fprop.rho_j, fprop.xkj,
-            #    fprop.Csi_j, total_flux_internal_faces)
-
         else:
             fprop.Nk = Nk; fprop.z = z; fprop.Nk_SP = Nk_SP
 
         fprop.wave_velocity = wave_velocity
         fprop.total_flux_internal_faces = total_flux_internal_faces
         if any(fprop.xkj.sum(axis=0).flatten()>1+1e-10): import pdb; pdb.set_trace()
-        if len(fprop.Nk[fprop.Nk<0])>0: import pdb; pdb.set_trace()
-        #if fprop.P[0]<fprop.P[1] or fprop.P[1]<fprop.P[2]: import pdb; pdb.set_trace()
+        if any(fprop.Nk.flatten()<0): import pdb; pdb.set_trace()
+        if fprop.P[0]<fprop.P[1] or fprop.P[1]<fprop.P[2]: import pdb; pdb.set_trace()
         #import pdb; pdb.set_trace()
         return delta_t
 
@@ -94,18 +89,13 @@ class CompositionalFVM:
                 dVjdP[0,0,:] = np.zeros(ctes.n_volumes)
                 dVjdP[0,1,:] = np.zeros_like(dVjdP[0,0,:])
             else:
-                dVjdP[0,0,:], dVjdP[0,1,:], dVjdNk[0:ctes.Nc,0,:], dVjdNk[0:ctes.Nc,1,:] = self.EOS.get_all_derivatives(fprop)
-                #dVtP = dVjdP.sum(axis=0)
-        #else:
-            #dVjdP[0,:] = np.zeros(ctes.n_volumes); dVjdP[1,:] = np.zeros(ctes.n_volumes)
-            #dVjdNk[:,0,:] = np.zeros((ctes.n_components, ctes.n_volumes));
-            #dVjdNk[:,1,:] =  np.zeros_like(dVldNk)
+                dVjdP[0,0,:], dVjdP[0,1,:], dVjdNk[0:ctes.Nc,0,:], dVjdNk[0:ctes.Nc,1,:] = \
+                self.EOS.get_all_derivatives(fprop)
 
         if ctes.load_w:
             dVjdNk[ctes.n_components-1,2,:] = 1 / fprop.Csi_j[0,ctes.n_phases-1,:]
             dVjdP[0,2,:] = - fprop.Nk[ctes.n_components-1,:] * fprop.Csi_W0 * ctes.Cw / (fprop.Csi_W)**2
 
-        #else: dVjdP[2,:] = np.zeros(ctes.n_volumes)
         return dVjdNk, dVjdP
 
     def get_faces_properties_upwind(self, fprop, G):
@@ -138,6 +128,7 @@ class CompositionalFVM:
         fprop.Csi_j_internal_faces[a>=0] = Csi_j_vols[a>=0]
         fprop.Csi_j_internal_faces[a<0] = Csi_j_vols_up[a<0]'''
 
+
     def get_faces_properties_average(self, fprop):
         fprop.mobilities_internal_faces = (fprop.Vp[ctes.v0[:,0]] * fprop.mobilities[:,:,ctes.v0[:,0]] +
                                                 fprop.Vp[ctes.v0[:,1]] * fprop.mobilities[:,:,ctes.v0[:,1]]) /  \
@@ -148,6 +139,7 @@ class CompositionalFVM:
         fprop.xkj_internal_faces = (fprop.Vp[ctes.v0[:,0]] * fprop.xkj[:,:,ctes.v0[:,0]] +
                                                 fprop.Vp[ctes.v0[:,1]] * fprop.xkj[:,:,ctes.v0[:,1]]) /  \
                                                 (fprop.Vp[ctes.v0[:,0]] + fprop.Vp[ctes.v0[:,1]])
+
 
     def get_phase_densities_internal_faces(self, fprop):
         fprop.rho_j_internal_faces = (fprop.Vp[ctes.v0[:,0]] * fprop.rho_j[:,:,ctes.v0[:,0]] +

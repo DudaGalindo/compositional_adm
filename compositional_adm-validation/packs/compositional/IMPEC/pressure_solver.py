@@ -21,7 +21,7 @@ class TPFASolver:
 
         self.dVtP = dVjdP.sum(axis=1)[0]
         self.dVtk = dVjdNk.sum(axis=1)
-        
+
 
     def update_transmissibility(self, M, wells, fprop, delta_t):
         self.t0_internal_faces_prod = fprop.xkj_internal_faces * \
