@@ -42,6 +42,7 @@ class WellsCompositional(Wells):
                 vols = get_box(centroids, limites)
 
                 nv = len(vols)
+                if tipo == 'Injector': z.append(well['z'])
 
                 if prescription == 'Q':
 
@@ -54,13 +55,15 @@ class WellsCompositional(Wells):
                     value_type = well['value_type']
                     values = val
 
-                    z.append(well['z'])
+
 
                     if value_type == 'volumetric':
+                        values_q_vol.append(val)
                         if inj_cond[-1] == 'surface':
                             values = (1 - well['z'][-1]) * well['ksi_total'] * val
                             values[-1] = val[-1] * well['ksi_total']
                             values_q_vol.append(val)
+
 
                     vals = np.repeat(values, nv)
                     if len(values_q)>0:
