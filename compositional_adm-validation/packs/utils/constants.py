@@ -43,6 +43,7 @@ def init(M, wells):
         bhp_ind = np.argwhere(M.volumes.center[wells['ws_p']][:,2] ==
         min(M.volumes.center[wells['ws_p']][:,2])).ravel()
     else: bhp_ind = wells['ws_p']
+    
 
 def component_properties():
     global load_k
