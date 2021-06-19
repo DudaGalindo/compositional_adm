@@ -1,12 +1,12 @@
 #2-phase problem with 3 components - moshiri
-mesh_name: 200x1x1_3k.msh
-name_save_file: 'results_Hoteit_Firoo_3k_200_FR' #150683
+mesh_name: 500x1x1_3k.msh
+name_save_file: 'results_Hoteit_Firoo_3k_500_upw' #150683
 
 compositional: True
 hidrocarbon_components: True
 compressible_fluid: True
-water_component: False
-use_vpi: False
+water_component: true
+use_vpi: false
 
 
 load_compositional_data: False
@@ -28,8 +28,13 @@ monophasic_data:
 compositional_data:
   #  Pensar em um jeito de reorganizar isso
   CFL: 0.9
+
+  solver:
+    IMPSAT: False
+
   MUSCL:
-    set: False
+    set: false
+
   FR:
     set: false
     order: 2
@@ -50,9 +55,9 @@ compositional_data:
 
   time_data:
     deltaPlim: 68.9476
-    deltaNlim: 10
-    deltaSlim: .35
-    deltaVlim: .005
+    deltaNlim: 5
+    deltaSlim: .25
+    deltaVlim: .0001
     delta_t_ini: 86.4
     delta_tmax: 86400
     delta_tmin: 8.64
@@ -81,7 +86,7 @@ compositional_data:
 
 #  C1 C2 C3
   component_data:
-    z: [0., 0.25, 0.75]
+    z: [0.0, 0.25, 0.75]
     Tc: [190.56, 305.32, 369.83]
     Pc: [4599000, 4873000, 4248000]
     vc: [9.85988846e-05, 1.45500276e-04, 2.00001177e-04]
@@ -107,7 +112,7 @@ Porosity:
 Permeability:
   r1:
     type: all
-    value: [10e-15, 0, 0, 0, 10e-15, 0, 0, 0, 10e-15]
+    value: [9.869233e-15, 0, 0, 0, 9.869233e-15, 0, 0, 0, 9.869233e-15]
 
 
 Pressure:
@@ -123,15 +128,19 @@ Temperature:
 Wells:
   P1:
     p0: [0.0, 0.0, 0]
-    p1: [0.25, 1, 1]
-    prescription: P
-    type: Injector
+    p1: [0.1, 1, 1]
     type_region: box
-    value: 7e6
+    prescription: Q
+    type: Injector
+    z: [0.9, 0.1, 0.0, 0.0]
+    value: 1.967592592592593e-06
+    injection_condition: reservoir
+    ksi_total: 3099.342953950803
+    value_type: volumetric
 
   P2:
-    p0: [49.75, 0.0, 0]
-    p1: [50, 1, 1.0]
+    p0: [49.9, 0.0, 0]
+    p1: [50, 1, 1]
     prescription: P
     type: Producer
     type_region: box
