@@ -129,7 +129,7 @@ Pressure:
 Temperature:
   r1:
     type: all
-    value: 344.25
+    value: 344.24
 
 # Poços
 Wells:
