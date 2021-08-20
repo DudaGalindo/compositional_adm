@@ -1,15 +1,18 @@
 from packs.directories import data_loaded
 from packs import directories as direc
 from packs.running.compositional_initial_mesh_properties import initial_mesh
-from packs.compositional.stability_check import StabilityCheck
+from packs.compositional.stability_check import StabilityCheck # ADD o trifásico
 from packs.compositional.update_time import delta_time
-from get_inputs_compositional import FluidProperties
-from packs.utils import constants as ctes
+from get_inputs_compositional import FluidProperties # Entender e alterar
+from packs.utils import constants as ctes # Entender e alterar
 import os
 import numpy as np
 import time
 
 if data_loaded['compositional_data']['solver']['IMPSAT']:
+    from packs.compositional.IMPSAT.compositionalIMPSAT import CompositionalFVM
+    from packs.compositional.IMPSAT.properties_calculation import PropertiesCalc
+elif data_loaded['compositional_data']['solver']['FIM']: # Falta criar arquivos abaixo
     from packs.compositional.IMPSAT.compositionalIMPSAT import CompositionalFVM
     from packs.compositional.IMPSAT.properties_calculation import PropertiesCalc
 else:
