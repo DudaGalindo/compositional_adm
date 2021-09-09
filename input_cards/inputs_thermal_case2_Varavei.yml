@@ -4,7 +4,7 @@ name_save_file: 'results_case2_1d_Varavei_Thermal'
 
 compositional: True
 hidrocarbon_components: True
-compressible_fluid: True # Não tenho certeza se é True ou False
+compressible_fluid: True # Não tenho certeza se é True ou False 
 water_component: True
 use_vpi: False
 
